@@ -70,15 +70,18 @@ module MMU(
     // write dmem 的 addr 的 vpn
     logic [8:0] dvpn_w [2:0];
 
-    // offset[2]: read imem 的 addr 的 offset
-    // offset[1]: read dmem 的 addr 的 offset
-    // offset[0]: write dmem 的 addr 的 offset
-    logic [11:0] offset [2:0];
 
+
+    // 用于存储某个周期时 mem 的 request 是否握手成功
+    // 在 PTWALKX_1 中被非阻塞赋值存储，在下个状态（PTWALKX_2）中根据 request 握手的情况对对应 reply_ready 赋 1
     logic request_handshake_r_imem;
     logic request_handshake_r_dmem;
     logic request_handshake_w_dmem;
 
+    // offset[2]: read imem 的 addr 的 offset
+    // offset[1]: read dmem 的 addr 的 offset
+    // offset[0]: write dmem 的 addr 的 offset
+    logic [11:0] offset [2:0];
     always_comb begin
         // 来自 core 的 va，提取出各类 vpn 和 offset
         ivpn[2]   = core_imem_ift.r_request_bits.raddr[38:30];
@@ -97,7 +100,7 @@ module MMU(
 
 
     mmu_state_t current_state, next_state;    
-    // 连接内
+    // 连接内存
     always_comb begin
         mem_imem_ift.r_request_valid = 0;
         mem_imem_ift.r_reply_ready = 0;
@@ -149,6 +152,8 @@ module MMU(
             PTWALK1_1: begin
                 mem_imem_ift.r_request_valid = core_imem_ift.r_request_valid;
                 mem_dmem_ift.r_request_valid = core_dmem_ift.r_request_valid || core_dmem_ift.w_request_valid;
+
+                //  目标页表项（此处即一级页表中的页表项）地址 = satp << 12（页表基地址） + vpn[2] << 3
                 if (core_imem_ift.r_request_valid) begin
                     mem_imem_ift.r_request_bits.raddr = {8'b0, satp_ppn, ivpn[2], 3'b0};
                 end
@@ -161,6 +166,8 @@ module MMU(
             end
 
             PTWALK1_2: begin
+                // 对应 request 在 PTWALK1_1 的握手成功时，才将 reply 置为 ready
+                // PTWALK2/3 同理
                 if (request_handshake_r_imem) begin
                     mem_imem_ift.r_reply_ready = 1;
                 end
@@ -182,7 +189,7 @@ module MMU(
                     mem_dmem_ift.r_request_bits.raddr = {8'b0, r_dmem_pte_level_1[PTE_PPN_HIGH:PTE_PPN_LOW], dvpn_r[1], 3'b0};
                 end
                 if (core_dmem_ift.w_request_valid) begin
-                    mem_dmem_ift.r_request_bits.raddr = {8'b0, w_dmem_pte_level_1[PTE_PPN_HIGH:PTE_PPN_LOW], dvpn_w[1], 3'b0};
+                    mem_dmem_ift.r_request_bits.raddr = {8'b0, r_dmem_pte_level_1[PTE_PPN_HIGH:PTE_PPN_LOW], dvpn_w[1], 3'b0};
                 end
             end
 
@@ -208,7 +215,7 @@ module MMU(
                     mem_dmem_ift.r_request_bits.raddr = {8'b0, r_dmem_pte_level_2[PTE_PPN_HIGH:PTE_PPN_LOW], dvpn_r[0],3'b0};
                 end
                 if (core_dmem_ift.w_request_valid) begin
-                    mem_dmem_ift.r_request_bits.raddr = {8'b0, w_dmem_pte_level_2[PTE_PPN_HIGH:PTE_PPN_LOW], dvpn_w[0], 3'b0};
+                    mem_dmem_ift.r_request_bits.raddr = {8'b0, r_dmem_pte_level_2[PTE_PPN_HIGH:PTE_PPN_LOW], dvpn_w[0], 3'b0};
                 end
             end
 
@@ -226,6 +233,8 @@ module MMU(
 
 
             GET_DATA: begin
+
+                // 先连接握手信号
                 mem_imem_ift.r_request_valid = core_imem_ift.r_request_valid;
                 mem_imem_ift.r_reply_ready = core_imem_ift.r_reply_ready;
                 mem_dmem_ift.r_request_valid = core_dmem_ift.r_request_valid;
@@ -241,15 +250,31 @@ module MMU(
                 core_dmem_ift.w_reply_valid = mem_dmem_ift.w_reply_valid;
 
                 if (pte_level == 3'b001) begin
+                    // 一级页表
+                    // 根据一级页表寻址得到各种真正的物理地址
                     mem_imem_ift.r_request_bits.raddr = {8'b0, imem_pte_level_1[PTE_PPN_HIGH:28], ivpn[1], ivpn[0], offset[2]};
                     mem_dmem_ift.r_request_bits.raddr = {8'b0, r_dmem_pte_level_1[PTE_PPN_HIGH:28], dvpn_r[1], dvpn_r[0], offset[1]};
                     mem_dmem_ift.w_request_bits.waddr = {8'b0, r_dmem_pte_level_1[PTE_PPN_HIGH:28], dvpn_w[1], dvpn_w[0], offset[0]};
                 end else if (pte_level == 3'b100) begin
+                    //三级页表
                     mem_imem_ift.r_request_bits.raddr = {8'b0, imem_pte_level_3[PTE_PPN_HIGH:PTE_PPN_LOW], offset[2]};
                     mem_dmem_ift.r_request_bits.raddr = {8'b0, r_dmem_pte_level_3[PTE_PPN_HIGH:PTE_PPN_LOW], offset[1]};
                     mem_dmem_ift.w_request_bits.waddr = {8'b0, r_dmem_pte_level_3[PTE_PPN_HIGH:PTE_PPN_LOW], offset[0]};
                 end
                 
+                // 将读到的数据传回 core / 要写入的数据写进 mem
+
+                // if (mem_imem_ift.r_reply_ready && mem_imem_ift.r_reply_valid) begin
+                //     core_imem_ift.r_reply_bits.rdata = mem_imem_ift.r_reply_bits.rdata;
+                // end
+                // if (mem_dmem_ift.r_reply_ready && mem_dmem_ift.r_reply_valid) begin
+                //     core_dmem_ift.r_reply_bits.rdata = mem_dmem_ift.r_reply_bits.rdata;
+                // end
+
+                // if (core_dmem_ift.w_request_valid && core_dmem_ift.w_request_ready) begin
+                //     mem_dmem_ift.w_request_bits.wdata = core_dmem_ift.w_request_bits.wdata;
+                //     mem_dmem_ift.w_request_bits.wmask = core_dmem_ift.w_request_bits.wmask;
+                // end
                 core_imem_ift.r_reply_bits.rdata = mem_imem_ift.r_reply_bits.rdata;
                 core_dmem_ift.r_reply_bits.rdata = mem_dmem_ift.r_reply_bits.rdata;
                 mem_dmem_ift.w_request_bits.wdata = core_dmem_ift.w_request_bits.wdata;
@@ -260,7 +285,6 @@ module MMU(
 
 
     // 更新状态
-    
     always_ff @(posedge clk or negedge rst) begin
         if (rst | switch_mode) begin
             current_state <= IDLE;
@@ -269,8 +293,8 @@ module MMU(
         end
     end
 
+    // 处理需要保存到下一个状态的信号
     always_ff @(posedge clk or negedge rst) begin
-
         case (current_state)
             IDLE: begin
                 pte_level <= 3'b000;
@@ -288,6 +312,8 @@ module MMU(
 
             PTWALK1_2: begin
                 pte_level <= 3'b001;
+
+                // 根据 PTWALK1_1的 raddr 读取对应 pte
                 if (mem_imem_ift.r_reply_valid && mem_imem_ift.r_reply_ready) begin
                     imem_pte_level_1 <= mem_imem_ift.r_reply_bits.rdata;
                 end
@@ -296,6 +322,7 @@ module MMU(
                     r_dmem_pte_level_1 <= mem_dmem_ift.r_reply_bits.rdata;
                 end
 
+                // w_dmem_pte_level_x may be useless...?
                 if (mem_dmem_ift.w_reply_valid && mem_dmem_ift.w_reply_ready) begin
                     w_dmem_pte_level_1 <= mem_dmem_ift.r_reply_bits.rdata;
                 end
@@ -347,6 +374,7 @@ module MMU(
         endcase
     end
 
+    // 判断当前页表项是否为叶子节点，由于判断要发生在 PTWALKX_2 中，而 xmem_pte_level_x 由于非阻塞赋值，其值从下一个状态（周期）才会改变，于是用读到的 rdata 来判断
     logic is_leaf_pte = (mem_imem_ift.r_reply_bits.rdata[PTE_X] == 1'b1 && mem_imem_ift.r_reply_bits.rdata[PTE_R] == 1'b1 && mem_imem_ift.r_reply_bits.rdata[PTE_W] == 1'b1) || (mem_dmem_ift.r_reply_bits.rdata[PTE_X] == 1'b1 && mem_dmem_ift.r_reply_bits.rdata[PTE_R] == 1'b1 && mem_dmem_ift.r_reply_bits.rdata[PTE_W] == 1'b1);
 
     always_comb begin
@@ -389,6 +417,8 @@ module MMU(
             end
             PTWALK2_2: begin
                 if (mem_imem_ift.r_reply_valid && mem_imem_ift.r_reply_ready || mem_dmem_ift.r_reply_valid && mem_dmem_ift.r_reply_ready || mem_dmem_ift.w_reply_valid && mem_dmem_ift.w_reply_ready) begin
+                    // 我不确定这里需不需要判断叶子pte，因为不存在 PTWALK2_2 直接跳到 GET_DATA 的情况（？）
+
                     // if ((mem_imem_ift.r_reply_bits.rdata[PTE_X] == 1'b1 && mem_imem_ift.r_reply_bits.rdata[PTE_R] == 1'b1 && mem_imem_ift.r_reply_bits.rdata[PTE_W] == 1'b1) || (mem_dmem_ift.r_reply_bits.rdata[PTE_X] == 1'b1 && mem_dmem_ift.r_reply_bits.rdata[PTE_R] == 1'b1 && mem_dmem_ift.r_reply_bits.rdata[PTE_W] == 1'b1)) begin
                     //     next_state = GET_DATA;
                     // end else begin
@@ -403,12 +433,16 @@ module MMU(
                 end
             end
             PTWALK3_2: begin
+
+                // 这里应该也不需要判断？因为已经是三级页表，取出的 pte 一定是叶子节点（？）
                 if (mem_imem_ift.r_reply_valid && mem_imem_ift.r_reply_ready || mem_dmem_ift.r_reply_valid && mem_dmem_ift.r_reply_ready || mem_dmem_ift.w_reply_valid && mem_dmem_ift.w_reply_ready) begin
                     next_state = GET_DATA;
                 end
             end
 
             GET_DATA: begin
+
+                // core 的 reply 握手完成代表一整套流程结束，回到 IDLE
                 if (core_imem_ift.r_reply_valid && core_imem_ift.r_reply_ready || core_dmem_ift.r_reply_valid && core_dmem_ift.r_reply_ready || core_dmem_ift.w_reply_valid && core_dmem_ift.w_reply_ready) begin
                     next_state = IDLE;
                 end
