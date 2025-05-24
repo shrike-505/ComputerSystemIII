@@ -4,24 +4,27 @@
 module CSRModule(
     input clk,
     input rst,
-    input csr_we_wb,                                //Write back csr reg enable
-    input CsrPack::csr_reg_ind_t csr_addr_wb,       //Write back csr reg address
-    input CorePack::data_t csr_val_wb,              //Write back csr reg value
-    input CsrPack::csr_reg_ind_t csr_addr_id,       //Read csr reg address
-    output CorePack::data_t csr_val_id,             //Read csr reg value
-    input CorePack::data_t pc_ret,                  //The return pc after finishing handle interrupt
-    input valid_wb,                                 
+    input csr_we_wb,
+    input CsrPack::csr_reg_ind_t csr_addr_wb,
+    input CorePack::data_t csr_val_wb,
+    input CsrPack::csr_reg_ind_t csr_addr_id,
+    output CorePack::data_t csr_val_id,
+
+    input CorePack::data_t pc_wb,
+    input valid_wb,
     input time_int,
-    input [1:0] csr_ret,                            //WB phase sret(01) mret(10)
-    input CsrPack::ExceptPack except_commit,        //except_reg_wb
+    input [1:0] csr_ret,
+    input CsrPack::ExceptPack except_commit,
+    input CsrPack::ExceptPack except_mmu,
 
-    output [1:0] priv,                              //privilege, to IDExceptExamine
-    output switch_mode,                             //time to switch privilege mode
-    output CorePack::data_t pc_csr,                 //where to jump to switch privilege mode
+    output [1:0] priv,
+    output switch_mode,
+    output CorePack::data_t pc_csr,
+    output CorePack::data_t satp,
 
-    output cosim_interrupt,                         //to Core-cosim_interrupt
-    output CorePack::data_t cosim_cause,            //to Core-cosim_cause
-    output CsrPack::CSRPack cosim_csr_info          //to Core-cosim_csr_info
+    output cosim_interrupt,
+    output CorePack::data_t cosim_cause,
+    output CsrPack::CSRPack cosim_csr_info
 );
     import CsrPack::*;
     import CorePack::*;
@@ -148,6 +151,8 @@ module CSRModule(
 
     reg [1:0] priv_reg;
     reg [1:0] mpp_reg,hpp_reg;
+    reg sum;
+    reg [1:0] uxl;
     reg spp_reg,mpie_reg,hpie_reg,spie_reg,upie_reg,mie_reg,hie_reg,sie_reg,uie_reg;
     
     always@(posedge clk)begin
@@ -167,12 +172,12 @@ module CSRModule(
 
     always@(posedge clk)begin
         if(rst)begin
-            {mpp_reg,hpp_reg,spp_reg,mpie_reg,hpie_reg,spie_reg,upie_reg,
-                mie_reg,hie_reg,sie_reg,uie_reg}<=13'b0;
+            {uxl, sum, mpp_reg, hpp_reg, spp_reg, mpie_reg, hpie_reg, spie_reg, upie_reg,
+                mie_reg, hie_reg, sie_reg, uie_reg} <= 16'b0;
         end else if(m_trap)begin
-            mie_reg<=1'b0;
-            mpie_reg<=mie_reg;
-            mpp_reg<=priv_reg;
+            mie_reg <= 1'b0;
+            mpie_reg <= mie_reg;
+            mpp_reg <= priv_reg;
         end else if(s_trap)begin
             sie_reg<=1'b0;
             spie_reg<=sie_reg;
@@ -188,14 +193,18 @@ module CSRModule(
         end else if(is_mstatus_w)begin
             {mpp_reg,hpp_reg,spp_reg,mpie_reg,hpie_reg,spie_reg,upie_reg,
                 mie_reg,hie_reg,sie_reg,uie_reg}<=csr_val_wb[12:0];
+            sum <= csr_val_wb[18];
+            uxl <= csr_val_wb[33:32];
         end else if(is_sstatus_w)begin
             {spp_reg,spie_reg,upie_reg,sie_reg,uie_reg}<=
                 {csr_val_wb[8],csr_val_wb[5:4],csr_val_wb[1:0]};
+            sum <= csr_val_wb[18];
+            uxl <= csr_val_wb[33:32];
         end
     end
-    wire [63:0] mstatus={51'b0,mpp_reg,hpp_reg,spp_reg,mpie_reg,hpie_reg,spie_reg,upie_reg,
+    wire [63:0] mstatus={30'b0, uxl, 13'b0, sum, 5'b0, mpp_reg,hpp_reg,spp_reg,mpie_reg,hpie_reg,spie_reg,upie_reg,
                 mie_reg,hie_reg,sie_reg,uie_reg};
-    wire [63:0] sstatus={55'b0,spp_reg,2'b0,spie_reg,upie_reg,2'b0,sie_reg,uie_reg};
+    wire [63:0] sstatus={30'b0, uxl, 13'b0, sum, 9'b0, spp_reg,2'b0,spie_reg,upie_reg,2'b0,sie_reg,uie_reg};
 
     ExceptPack except_final;
     reg [63:0] mepc_reg;
@@ -279,11 +288,11 @@ module CSRModule(
     wire [63:0] enable_interrupt_s=mask_interrupt&mideleg&{64{(priv==2'b01&sie_reg)|(priv==2'b00)}};
     wire [63:0] enable_interrupt=enable_interrupt_m|enable_interrupt_s;
     wire interrupt=|enable_interrupt;
-    wire except=except_commit.except;
+    wire except = except_commit.except | except_mmu.except;
 
     ExceptPack except_interrupt;
     assign except_interrupt.except=interrupt;
-    assign except_interrupt.epc=pc_ret;
+    assign except_interrupt.epc=pc_wb;
     assign except_interrupt.etval=64'b0;
     wire [63:0] cause=enable_interrupt[11]?MEI:
         enable_interrupt[3]?MSI:enable_interrupt[7]?MTI:
@@ -293,16 +302,42 @@ module CSRModule(
         enable_interrupt[8]?UEI:enable_interrupt[0]?USI:
         enable_interrupt[4]?UTI:64'b0;
     assign except_interrupt.ecause=cause;
-    assign except_final=interrupt?except_interrupt:except_commit;
+    assign except_final= interrupt ? except_interrupt : (except_mmu.except ? except_mmu : except_commit);
 
-    wire s_trap_int=(|((64'b1<<{1'b0,cause[62:0]})&enable_interrupt_s))&valid_wb;
-    wire s_trap_exp=~interrupt&except&
-        |((64'b1<<except_commit.ecause)&medeleg);
-    assign s_trap=(s_trap_int|s_trap_exp)&(priv==2'b01);
+    logic IEtogether;
+    always_ff @(posedge clk) begin
+        if(rst) IEtogether <= 1'b0;
+        if(interrupt & except_mmu.except)
+            IEtogether <= 1'b1;
+        else if(s_ret)
+            IEtogether <= 1'b0;
+        else IEtogether <= IEtogether;
+    end
+
+    wire s_trap_int=(|((64'b1<<{1'b0,cause[62:0]})&enable_interrupt_s))&(valid_wb|except_mmu.except);
+    wire s_trap_exp=~interrupt&
+        ((|((64'b1<<except_commit.ecause)&medeleg) & except_commit.except)
+        |(|((64'b1<<except_mmu.ecause)&medeleg) & except_mmu.except));
+
+    assign s_trap=(s_trap_int|s_trap_exp) & (priv == 2'b01 | priv == 2'b00);
     assign m_trap=(interrupt&valid_wb|except)&~s_trap;
 
-    assign pc_csr=m_trap?mtvec:s_trap?stvec:m_ret?mepc:s_ret?sepc:64'b0;
+    assign pc_csr =  m_trap ? mtvec
+                    :s_trap ? stvec
+                    :m_ret ? mepc
+                    :(s_ret & IEtogether) ? sepc - 4
+                    :(s_ret) ? sepc
+                    :64'b0;
 
+    logic [63:0] satp_reg;
+    always_ff @( posedge clk ) begin
+        if(rst)begin
+            satp_reg <= 64'b0;
+        end else if(csr_addr_wb == SATP && csr_we_wb)begin
+            satp_reg <= csr_val_wb;
+        end
+    end
+    assign satp = satp_reg;
 
     // wire is_sstatus_r=csr_addr_id==SSTATUS;
     // wire is_sie_r=csr_addr_id==SIE;
@@ -326,7 +361,8 @@ module CSRModule(
     //             is_mepc_r?mepc:is_sepc_r?sepc:is_mcause_r?mcause:is_scause_r?scause:
     //             is_mtval_r?mtval:is_stval_r?stval:64'b0;
     wire [63:0] compress [31:0];
-    wire [4:0] compress_index={csr_addr_id[9],csr_addr_id[6],csr_addr_id[2:0]};
+    wire [4:0] compress_index = (csr_addr_id == SATP) ? SATP_COMPRESS
+                                : {csr_addr_id[9],csr_addr_id[6],csr_addr_id[2:0]};
     assign compress[SSTATUS_COMPRESS]=sstatus;
     assign compress[1]=64'b0;
     assign compress[2]=64'b0;
@@ -340,7 +376,7 @@ module CSRModule(
     assign compress[SCAUSE_COMPRESS]=scause;
     assign compress[STVAL_COMPRESS]=stval;
     assign compress[SIP_COMPRESS]=sip;
-    assign compress[13]=64'b0;
+    assign compress[SATP_COMPRESS]=satp;
     assign compress[14]=64'b0;
     assign compress[15]=64'b0;
     assign compress[MSTATUS_COMPRESS]=mstatus;

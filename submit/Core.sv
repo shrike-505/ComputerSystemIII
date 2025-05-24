@@ -5,9 +5,15 @@ module Core (
     input clk,
     input rst,
     input time_int,
+    input CsrPack::ExceptPack except_mmu,
 
     Mem_ift.Master imem_ift,
     Mem_ift.Master dmem_ift,
+    output CorePack::data_t satp, // Done
+    output logic [1:0] output_priv, // TBD
+    output CorePack::data_t pc_if, // TBD
+    output CorePack::data_t pc_mem, // TBD
+
     output cosim_valid,
     output CorePack::CoreInfo cosim_core_info,
     output CsrPack::CSRPack cosim_csr_info,
@@ -223,14 +229,17 @@ module Core (
         .csr_val_wb(mem_wb_csr_val_wb), // DOne
         .csr_addr_id(csr_addr), // Done
         .csr_val_id(csr_val), // Done
-        .pc_ret(pc_ret),
+
+        .pc_wb(pc_ret),
         .valid_wb(valid_wb),
         .time_int(time_int),
         .csr_ret(mem_wb_csr_ret),
         .except_commit(mem_wb_except_exe),
+        .except_mmu(except_mmu), // TBD
         .priv(priv),
         .switch_mode(switch_mode),
         .pc_csr(pc_csr),
+        .satp(satp),
         .cosim_interrupt(cosim_interrupt),
         .cosim_cause(cosim_cause),
         .cosim_csr_info(cosim_csr_info)    
@@ -250,7 +259,7 @@ module Core (
         .read_data_2(read_data_2)
     );
 
-    logic valid_id = if_id_inst!=0;
+    logic valid_id = (if_id_inst!=0);
     IDExceptExamine idexcept(
         .clk(clk),
         .rst(rst),
