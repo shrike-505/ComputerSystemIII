@@ -8,10 +8,10 @@ module MMU(
     input CorePack::data_t satp,
     input [1:0] priv,
     input switch_mode,
-    input CorePack::data_t pc_if,
-    input CorePack::data_t pc_mem,
+    input CorePack::data_t pc_if, // To be used
+    input CorePack::data_t pc_mem, // To be used
 
-    output CsrPack::ExceptPack except_mmu,
+    output CsrPack::ExceptPack except_mmu, // TBD
 
     Mem_ift.Slave core_imem_ift,
     Mem_ift.Slave core_dmem_ift,
@@ -286,7 +286,7 @@ module MMU(
 
     // 更新状态
     always_ff @(posedge clk or negedge rst) begin
-        if (rst | switch_mode) begin
+        if (rst) begin
             current_state <= IDLE;
         end else begin
             current_state <= next_state;
@@ -400,11 +400,15 @@ module MMU(
                 end
             end
             PTWALK1_2: begin
-                if (mem_imem_ift.r_reply_valid && mem_imem_ift.r_reply_ready || mem_dmem_ift.r_reply_valid && mem_dmem_ift.r_reply_ready || mem_dmem_ift.w_reply_valid && mem_dmem_ift.w_reply_ready) begin
-                    if (is_leaf_pte) begin
-                        next_state = GET_DATA;
-                    end else begin
-                        next_state = PTWALK2_1;
+                if (switch_mode) begin
+                    next_state = GET_DATA;
+                end else begin
+                    if (mem_imem_ift.r_reply_valid && mem_imem_ift.r_reply_ready || mem_dmem_ift.r_reply_valid && mem_dmem_ift.r_reply_ready || mem_dmem_ift.w_reply_valid && mem_dmem_ift.w_reply_ready) begin
+                        if (is_leaf_pte) begin
+                            next_state = GET_DATA;
+                        end else begin
+                            next_state = PTWALK2_1;
+                        end
                     end
                 end
             end

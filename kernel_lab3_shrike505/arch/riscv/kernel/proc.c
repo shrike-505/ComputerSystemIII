@@ -109,7 +109,8 @@ void schedule(void) {
 		if (MaxCount!=0) break; 
         // 若所有线程的 counter 均为 0，则重置所有线程的 counter 为 priority
 		for(i = 1; i < NR_TASKS; i++) {
-            task[i]->counter = task[i]->priority;
+            // task[i]->counter = task[i]->priority;
+            task[i]->counter = 1;
             printk("SET [PID = %ld PRIORITY = %ld COUNTER = %ld]\n", task[i]->pid, task[i]->priority, task[i]->counter);
         }
 	}
