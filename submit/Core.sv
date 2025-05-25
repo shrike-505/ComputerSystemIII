@@ -10,7 +10,7 @@ module Core (
     Mem_ift.Master imem_ift,
     Mem_ift.Master dmem_ift,
     output CorePack::data_t satp, // Done
-    output logic [1:0] output_priv, // TBD
+    output logic [1:0] output_priv, // Done
     output CorePack::data_t pc_if, // TBD
     output CorePack::data_t pc_mem, // TBD
 
@@ -906,5 +906,6 @@ module Core (
     // assign cosim_core_info.npc       = next_pc;
 
     assign cosim_switch_mode         = switch_mode;
+    assign output_priv               = priv;
 
 endmodule
