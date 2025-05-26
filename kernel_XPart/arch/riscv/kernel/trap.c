@@ -161,7 +161,7 @@ void trap_handler(struct pt_regs *regs, uint64_t scause, uint64_t stval) {
     do_page_fault(regs, scause, stval);
   }
   else {
-    printk("[S] trap_handler: unsupported scause = 0x%lx\n", scause);
+    printk("[S] trap_handler: unsupported scause = 0x%lx, stval = 0x%lx\n", scause, stval);
   }
   return;
 }
