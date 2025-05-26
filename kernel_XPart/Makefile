@@ -60,4 +60,5 @@ clean:
 	$(MAKE) -C arch/riscv clean
 	$(MAKE) -C "$(SNPRINTF_TEST_DIR)" -f "$(SNPRINTF_MAKEFILE)" clean
 	rm -rf vmlinux vmlinux.asm snprintf_test System.map arch/riscv/boot
+	rm -rf *.txt
 	# Clean finished!
