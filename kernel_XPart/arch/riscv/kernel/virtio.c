@@ -39,31 +39,15 @@ void virtio_init(uint64_t virtio_base)
     char buf[VIRTIO_BLK_SECTOR_SIZE];
     memset(buf, 0xac, VIRTIO_BLK_SECTOR_SIZE);
     virtio_blk_read_sector(virtio_base, 0x0, buf);
-    for (int i = 0; i < 32; i++)
+    if (buf[510] != 0x55 || buf[511] != 0xaa)
     {
-        if (i != 0 && i % 16 == 0)
-        {
-            printk("\n");
-        }
-        printk("%02x ", (unsigned char)buf[i]);
+        printk("\nvirtio_blk_init: sector 0 is not a valid MBR\n");
     }
-    printk("\nvirtio_blk_init: read sector 0 done\n");
-
-    memset(buf, 0xac, VIRTIO_BLK_SECTOR_SIZE);
-    virtio_blk_write_sector(virtio_base, 0x0, buf);
-    printk("virtio_blk_init: write sector 0 done\n");
-
-    memset(buf, 0xac, VIRTIO_BLK_SECTOR_SIZE);
-    virtio_blk_read_sector(virtio_base, 0x0, buf);
-    for (int i = 0; i < 32; i++)
+    else
     {
-        if (i != 0 && i % 16 == 0)
-        {
-            printk("\n");
-        }
-        printk("%02x ", (unsigned char)buf[i]);
+        printk("\nvirtio_blk_init: sector 0 is a valid MBR\n");
     }
-    printk("\nvirtio_blk_init: read sector 0 done\n");
+    printk("...virtio_blk_init done!\n");
 }
 
 void virtio_blk_driver_init(uint64_t virtio_base)

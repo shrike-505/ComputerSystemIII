@@ -7,6 +7,8 @@
 #include <private_kdefs.h>
 #include <virtio.h>
 #include <elf.h>
+#include <mbr.h>
+#include <fs.h>
 
 //#define NO_PG_FAULT
 //#define NO_FORK
@@ -26,6 +28,10 @@ void __dummy(void);
 void __switch_to(struct task_struct *prev, struct task_struct *next);
 
 uint64_t avail_pid = INIT_TASKS;
+
+uint64_t virtio_base;
+
+struct files_struct *files;
 
 struct vm_area_struct *find_vma(struct mm_struct *mm, void *va) {
     struct vm_area_struct *vma = mm->mmap;
@@ -131,7 +137,21 @@ void load_elf(struct task_struct *task, char *start, char *end) {
     printk("Loaded ELF: entry point = 0x%lx\n", task->thread.sepc);
 }
 
+void file_system_init(void) {
+    virtio_base = virtio_seek_device();
+    printk("virtio base = 0x%lx\n", virtio_base);
+    virtio_init(virtio_base);
+
+    struct mbr mbr;
+    mbr_read(virtio_base, &mbr);
+    mbr_print(&mbr);
+
+    printk("...file_system_init done!\n");
+}
+
 void task_init(void) {
+    file_system_init();
+
     srand(2025);
 
     idle = (struct task_struct *)alloc_page();
@@ -202,10 +222,6 @@ void task_init(void) {
 
         //printk("INIT TASK [PID = %ld, PRIORITY = %ld, COUNTER = %ld, ra = %lx, sp = %lx]\n", task[i]->pid, task[i]->priority, task[i]->counter, task[i]->thread.ra, task[i]->thread.sp);
     }
-
-    uint64_t virtio_base = virtio_seek_device();
-    printk("virtio base = 0x%lx\n", virtio_base);
-    virtio_init(virtio_base);
 
     printk("...task_init done!\n");
 }
