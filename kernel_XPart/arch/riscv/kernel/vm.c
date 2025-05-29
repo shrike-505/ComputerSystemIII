@@ -2,6 +2,7 @@
 #include <vm.h>
 #include <printk.h>
 #include <string.h>
+#include <virtio.h>
 
 // 用于 setup_vm 进行 1 GiB 的映射
 uint64_t early_pgtbl[PGSIZE / 8] __attribute__((__aligned__(PGSIZE)));
@@ -67,6 +68,10 @@ void setup_vm_final(void) {
   create_mapping(swapper_pg_dir, (void *)va, (void *)pa, text_size, text_perm | PTE_V);
   create_mapping(swapper_pg_dir, (void *)(va + text_size), (void *)(pa + text_size), rodata_size, rodata_perm | PTE_V);
   create_mapping(swapper_pg_dir, (void *)(va + text_size + rodata_size), (void *)(pa + text_size + rodata_size), other_size, other_perm | PTE_V);
+
+  uint64_t virtio_size = VIRTIO_MMIO_END - VIRTIO_MMIO_START;
+  uint64_t virtio_perm = PTE_R | PTE_W;
+  create_mapping(swapper_pg_dir, (void *)(VIRTIO_MMIO_START + VIRT_VM_OFFSET), (void *)VIRTIO_MMIO_START, virtio_size, virtio_perm | PTE_V);
 
   uint64_t satp = (0x8000000000000000 | ((uint64_t)swapper_pg_dir - PA2VA_OFFSET) >> 12);
   printk("setup_vm_final: satp = 0x%lx\n", satp);
