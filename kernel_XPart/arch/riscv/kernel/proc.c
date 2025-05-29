@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <private_kdefs.h>
+#include <virtio.h>
 #include <elf.h>
 
 //#define NO_PG_FAULT
@@ -201,6 +202,10 @@ void task_init(void) {
 
         //printk("INIT TASK [PID = %ld, PRIORITY = %ld, COUNTER = %ld, ra = %lx, sp = %lx]\n", task[i]->pid, task[i]->priority, task[i]->counter, task[i]->thread.ra, task[i]->thread.sp);
     }
+
+    uint64_t virtio_base = virtio_seek_device();
+    printk("virtio base = 0x%lx\n", virtio_base);
+    virtio_init(virtio_base);
 
     printk("...task_init done!\n");
 }
