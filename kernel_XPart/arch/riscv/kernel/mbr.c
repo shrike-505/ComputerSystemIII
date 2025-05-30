@@ -1,5 +1,7 @@
 #include <mbr.h>
 #include <virtio.h>
+#include <string.h>
+#include <printk.h>
 
 void mbr_read(uint64_t virtio_base, struct mbr *mbr)
 {
@@ -17,22 +19,3 @@ void mbr_read(uint64_t virtio_base, struct mbr *mbr)
     memcpy(mbr, buf, sizeof(struct mbr));
 }
 
-void mbr_print(const struct mbr *mbr)
-{
-    printk("MBR Disk Signature: 0x%08x\n", mbr->disk_signature);
-    printk("MBR Boot Signature: 0x%04x\n", mbr->boot_signature);
-    for (int i = 0; i < 4; i++)
-    {
-        const struct mbr_partition_entry *entry = &mbr->partitions[i];
-        if (entry->type != 0)
-        {
-            printk("Partition %d:\n", i + 1);
-            printk("  Status: 0x%02x\n", entry->status);
-            printk("  CHS First: 0x%02x%02x%02x\n", entry->chs_first[0], entry->chs_first[1], entry->chs_first[2]);
-            printk("  CHS Last: 0x%02x%02x%02x\n", entry->chs_last[0], entry->chs_last[1], entry->chs_last[2]);
-            printk("  Type: 0x%02x\n", entry->type);
-            printk("  First Sector (LBA): %u\n", entry->lba_first);
-            printk("  Size (sectors): %u\n", entry->size);
-        }
-    }
-} 

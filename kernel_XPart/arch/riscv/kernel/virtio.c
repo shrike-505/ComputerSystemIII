@@ -41,11 +41,11 @@ void virtio_init(uint64_t virtio_base)
     virtio_blk_read_sector(virtio_base, 0x0, buf);
     if (buf[510] != 0x55 || buf[511] != 0xaa)
     {
-        printk("\nvirtio_blk_init: sector 0 is not a valid MBR\n");
+        printk("virtio_blk_init: sector 0 is not a valid MBR\n");
     }
     else
     {
-        printk("\nvirtio_blk_init: sector 0 is a valid MBR\n");
+        printk("virtio_blk_init: sector 0 is a valid MBR\n");
     }
     printk("...virtio_blk_init done!\n");
 }
@@ -98,6 +98,7 @@ void virtio_blk_queue_init(uint64_t virtio_base)
 
     *(volatile uint32_t *)(virtio_base + VIRTIO_MMIO_QUEUE_SEL) = 0;
     *(volatile uint32_t *)(virtio_base + VIRTIO_MMIO_QUEUE_NUM_MAX) = VIRTIO_QUEUE_SIZE;
+    *(volatile uint32_t *)(virtio_base + VIRTIO_MMIO_QUEUE_NUM) = VIRTIO_QUEUE_SIZE;
 
     uint32_t desc_addr_low = (uint32_t)(((uint64_t)virtio_blk_ring.desc - PA2VA_OFFSET) & 0xFFFFFFFF);
     uint32_t desc_addr_high = (uint32_t)(((uint64_t)virtio_blk_ring.desc - PA2VA_OFFSET) >> 32);
@@ -134,11 +135,13 @@ void virtio_blk_cmd(uint64_t virtio_base, uint32_t type, uint32_t sector, void *
 
     // request header
     virtio_blk_ring.desc[0].addr = (uint64_t)(&virtio_blk_req) - PA2VA_OFFSET;
-    virtio_blk_ring.desc[0].len = sizeof(virtio_blk_req);
+    virtio_blk_ring.desc[0].len = sizeof(struct virtio_blk_req);
     virtio_blk_ring.desc[0].flags = VIRTQ_DESC_F_NEXT;
     virtio_blk_ring.desc[0].next = 1;
 
-    // data buffer
+    if (type == VIRTIO_BLK_T_IN)
+    {
+    //data buffer
     virtio_blk_ring.desc[1].addr = (uint64_t)buf - PA2VA_OFFSET;
     virtio_blk_ring.desc[1].len = VIRTIO_BLK_SECTOR_SIZE;
     virtio_blk_ring.desc[1].flags = flags;
@@ -148,6 +151,15 @@ void virtio_blk_cmd(uint64_t virtio_base, uint32_t type, uint32_t sector, void *
     virtio_blk_ring.desc[2].addr = (uint64_t)(&virtio_blk_status) - PA2VA_OFFSET;
     virtio_blk_ring.desc[2].len = sizeof(virtio_blk_status);
     virtio_blk_ring.desc[2].flags = VIRTQ_DESC_F_WRITE;
+    }
+    else if (type == VIRTIO_BLK_T_OUT)
+    {
+        // status buffer
+        virtio_blk_ring.desc[1].addr = (uint64_t)(&virtio_blk_status) - PA2VA_OFFSET;
+        virtio_blk_ring.desc[1].len = sizeof(virtio_blk_status);
+        virtio_blk_ring.desc[1].flags = VIRTQ_DESC_F_WRITE;
+    }
+
 
     *(volatile uint32_t *)(virtio_base + VIRTIO_MMIO_STATUS) |= DEVICE_DRIVER_OK; // Indicate that the driver is ready
 
@@ -158,7 +170,7 @@ void virtio_blk_cmd(uint64_t virtio_base, uint32_t type, uint32_t sector, void *
     asm volatile("fence rw, rw");
 
 
-    printk("virtio_blk_cmd: type = %u, sector = %u, buf = %p\n", type, sector, buf);
+    //printk("virtio_blk_cmd: type = %u, sector = %u, buf = %p\n", type, sector, buf);
     return;
 }
 
@@ -166,20 +178,18 @@ void virtio_blk_read_sector(uint64_t virtio_base, uint32_t sector, void *buf)
 {
     uint16_t old_idx = virtio_blk_ring.used->idx;
     virtio_blk_cmd(virtio_base, VIRTIO_BLK_T_IN, sector, buf);
+    printk("reading[#");
     while (virtio_blk_ring.used->idx == old_idx)
     {
         // Wait for the device to process the request
-        printk(".");
+        printk("=");
     }
-    printk("\n");
-    if (virtio_blk_status == VIRTIO_BLK_S_OK)
-    {
-        printk("virtio_blk_read_sector: sector %u read successfully\n", sector);
-    }
-    else
+    printk("#]\n");
+    if (virtio_blk_status != VIRTIO_BLK_S_OK)
     {
         printk("virtio_blk_read_sector: sector %u read failed with status %d\n", sector, virtio_blk_status);
     }
+    printk("virtio_blk_read_sector: sector %u read completed successfully\n", sector);
 }
 
 void virtio_blk_write_sector(uint64_t virtio_base, uint32_t sector, const void *buf)
@@ -187,18 +197,16 @@ void virtio_blk_write_sector(uint64_t virtio_base, uint32_t sector, const void *
     memcpy(virtio_blk_req.data, buf, VIRTIO_BLK_SECTOR_SIZE);
     uint16_t old_idx = virtio_blk_ring.used->idx;
     virtio_blk_cmd(virtio_base, VIRTIO_BLK_T_OUT, sector, (void *)buf);
+    printk("writing[#");
     while (virtio_blk_ring.used->idx == old_idx)
     {
         // Wait for the device to process the request
-        printk(".");
+        printk("=");
     }
-    printk("\n");
-    if (virtio_blk_status == VIRTIO_BLK_S_OK)
-    {
-        printk("virtio_blk_write_sector: sector %u written successfully\n", sector);
-    }
-    else
+    printk("#]\n");
+    if (virtio_blk_status != VIRTIO_BLK_S_OK)
     {
         printk("virtio_blk_write_sector: sector %u write failed with status %d\n", sector, virtio_blk_status);
     }
+    printk("virtio_blk_write_sector: sector %u write completed successfully\n", sector);
 }

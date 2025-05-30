@@ -9,6 +9,7 @@
 #include <elf.h>
 #include <mbr.h>
 #include <fs.h>
+#include <fat32.h>
 
 //#define NO_PG_FAULT
 //#define NO_FORK
@@ -31,7 +32,8 @@ uint64_t avail_pid = INIT_TASKS;
 
 uint64_t virtio_base;
 
-struct files_struct *files;
+struct files_struct files;
+uint64_t avail_file_desc = 3; // 0, 1, 2 are reserved for stdin, stdout, stderr
 
 struct vm_area_struct *find_vma(struct mm_struct *mm, void *va) {
     struct vm_area_struct *vma = mm->mmap;
@@ -142,9 +144,28 @@ void file_system_init(void) {
     printk("virtio base = 0x%lx\n", virtio_base);
     virtio_init(virtio_base);
 
-    struct mbr mbr;
-    mbr_read(virtio_base, &mbr);
-    mbr_print(&mbr);
+    fat32_init(virtio_base);
+
+    uint64_t filenames[MAX_FILE_NUMBER];
+    memset(filenames, 0, sizeof(filenames));   
+    get_fat32_filenames(virtio_base, filenames);
+    printk("%s\n",(char *)filenames);
+    // fat32_open_file(virtio_base, &(files.fd_array[3].fat32_file), "abc.xyz");
+    // fat32_open_file(virtio_base, &(files.fd_array[3].fat32_file), "email");
+    // char buf[3 * VIRTIO_BLK_SECTOR_SIZE];
+    // fat32_read_file(virtio_base, &(files.fd_array[3].fat32_file), (void *)buf, sizeof(buf));
+    // printk("Read file content: \n%s\n", buf);
+    // fat32_create_file(virtio_base, "newfile.txt");
+    // fat32_open_file(virtio_base, &(files.fd_array[4].fat32_file), "newfile.txt");
+    // fat32_write_file(virtio_base, &(files.fd_array[4].fat32_file), "Hello, FAT32!", 13, 0);
+    // char read_buf[VIRTIO_BLK_SECTOR_SIZE];
+    // fat32_read_file(virtio_base, &(files.fd_array[4].fat32_file), (void *)read_buf, sizeof(read_buf));
+    // printk("Read new file content: \n%s\n", read_buf);
+    // fat32_write_file(virtio_base, &(files.fd_array[4].fat32_file), "Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!Updated content!", 512, 6);
+    // char read_buf_2[2 * VIRTIO_BLK_SECTOR_SIZE];
+    // fat32_read_file(virtio_base, &(files.fd_array[4].fat32_file), (void *)read_buf_2, sizeof(read_buf_2));
+    // printk("Read new file content: \n%s\n", read_buf_2);
+
 
     printk("...file_system_init done!\n");
 }
