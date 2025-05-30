@@ -5,7 +5,7 @@
 #include <fat32.h>
 
 #define MAX_FILE_NUMBER 32
-#define MAX_PATH_LENGTH 256
+#define MAX_PATH_LENGTH 32
 
 struct fat32_dir {
     uint32_t cluster;
@@ -14,6 +14,8 @@ struct fat32_dir {
 
 struct fat32_file {
     uint32_t cluster;
+    char name[11];
+    uint32_t size;      // file size in bytes
     struct fat32_dir dir;
 };
 

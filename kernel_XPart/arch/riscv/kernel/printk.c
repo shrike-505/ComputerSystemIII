@@ -21,3 +21,12 @@ void printk(const char *fmt, ...) {
   vfprintf(&printk_out, fmt, ap);
   va_end(ap);
 }
+
+void printk_blk_rawdata(const char *buf) {
+  for (size_t i = 0; i < 512; i++) {
+    printk("%02x ", (unsigned char)buf[i]);
+    if ((i + 1) % 16 == 0) {
+      printk("\n");
+    }
+  }
+}
