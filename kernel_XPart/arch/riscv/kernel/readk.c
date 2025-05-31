@@ -29,3 +29,9 @@ uint64_t readk(char* buf, uint64_t count) {
     buf[ret] = '\0';
     return ret;
 }
+
+int64_t getcharnk_sbi_read_fileio(struct file *file, void *buf, uint64_t len)
+{
+    int64_t ret = readk((char *)buf, len);
+    return ret;
+}

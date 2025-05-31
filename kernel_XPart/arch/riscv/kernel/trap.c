@@ -8,18 +8,67 @@
 #include <mm.h>
 #include <string.h>
 #include <private_kdefs.h>
+#include <fs.h>
 
 void clock_set_next_event(void);
 
 extern struct task_struct *current;
 
+extern struct files_struct files;
+
+extern uint64_t avail_file_desc;
+
 void syscall_handler(struct pt_regs *regs){
   uint64_t syscall_num = regs->x[17];
+  int fd;
+  struct file *file; 
   switch (syscall_num) {
+    case __NR_open:
+      const char *path = (const char *)regs->x[10];
+      int flags = regs->x[11];
+      fd = file_open(&files.fd_array[avail_file_desc], path, flags);
+      if (fd >= 0) {
+        regs->x[10] = avail_file_desc; // return the fd
+        avail_file_desc++;
+      } else {
+        printk("[U] syscall open: failed to open file %s\n", path);
+        regs->x[10] = -1; // error
+      }
+      break;
+    case __NR_close:
+      fd = regs->x[10];
+      if (fd >= 0 && fd < MAX_FILE_NUMBER && files.fd_array[fd].opened) {
+        file = &files.fd_array[fd];
+        file_close(file);
+        regs->x[10] = 0; // success
+      } else {
+        printk("[U] syscall close: unsupported fd = %ld", regs->x[10]);
+        regs->x[10] = -1; // error
+      }
+      break;
+    case __NR_lseek:
+      fd = regs->x[10];
+      file = &files.fd_array[fd];
+      if (fd >= 0 && fd < MAX_FILE_NUMBER && file->opened) {
+        int64_t offset = regs->x[11];
+        uint64_t whence = regs->x[12];
+        if (file->lseek) {
+          regs->x[10] = file->lseek(file, offset, whence);
+        } else {
+          printk("[U] syscall lseek: lseek not implemented for fd = %ld", fd);
+          regs->x[10] = -1; // error
+        }
+      } else {
+        printk("[U] syscall lseek: unsupported fd = %ld", regs->x[10]);
+        regs->x[10] = -1; // error
+      }
+      break;
     case __NR_read:
-      if (regs->x[10] == 0) {
+      fd = regs->x[10]; 
+      file = &files.fd_array[fd];
+      if ((fd == 0 || fd >= 3) && fd < MAX_FILE_NUMBER && file->opened && (file->perms & F_READ)) {
         char *buf = (char *)regs->x[11];
-        regs->x[10] = readk(buf, regs->x[12]);
+        regs->x[10] = file->read(file, buf, regs->x[12]);
       }
       else {
         printk("[U] syscall read: unsupported fd = %ld", regs->x[10]);
@@ -27,12 +76,11 @@ void syscall_handler(struct pt_regs *regs){
       }
       break;
     case __NR_write:
-      if (regs->x[10] == 1) {
+      fd = regs->x[10]; 
+      file = &files.fd_array[fd];
+      if (fd >= 1 && fd < MAX_FILE_NUMBER && file->opened && (file->perms & F_WRITE)) {
         char *buf = (char *)regs->x[11];
-        for (uint64_t i = 0; i < regs->x[12]; i++) {
-          printk("%c", buf[i]);
-        }
-        regs->x[10] = regs->x[12];
+        regs->x[10] = file->write(file, buf, regs->x[12]);
       }
       else {
         printk("[U] syscall write: unsupported fd = %ld", regs->x[10]);

@@ -2,6 +2,8 @@
 #define FS_H
 
 #include <stdint.h>
+#include <virtio.h>
+#include <mbr.h>
 #include <fat32.h>
 
 #define MAX_FILE_NUMBER 32
@@ -19,16 +21,18 @@ struct fat32_file {
     struct fat32_dir dir;
 };
 
+struct file {   // Opened file in a thread.
+    uint32_t opened;
 #define F_READ  0x1 // Read permission
 #define F_WRITE 0x2 // Write permission
 #define F_EXEC  0x4 // Execute permission
-
-struct file {   // Opened file in a thread.
-    uint32_t opened;
     uint32_t perms;
     int64_t cfo;
+#define FS_TYPE_FAT32 0x1
+#define FS_TYPE_UNSUPPORTED  0x0
     uint32_t fs_type;
 #define UNLOCKED -1
+#define SHARED 0
     int32_t lock_pid;
 
     union {
@@ -46,7 +50,11 @@ struct files_struct {
     struct file fd_array[MAX_FILE_NUMBER];
 };
 
-struct files_struct *file_init();
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
+void file_init();
 int32_t file_open(struct file *file, const char *path, int flags);
 int32_t file_close(struct file *file);
 int64_t file_lseek(struct file *file, int64_t offset, uint64_t whence);

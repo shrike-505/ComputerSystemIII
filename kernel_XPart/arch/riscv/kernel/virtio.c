@@ -1,5 +1,7 @@
 #include <virtio.h>
 #include <mm.h>
+#include <printk.h>
+#include <private_kdefs.h>
 #include <string.h>
 
 struct virtq virtio_blk_ring;
