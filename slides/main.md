@@ -16,7 +16,7 @@ revealOptions:
 <div class="middle center">
 <div style="height: 100px; width: 100%">
 
-# Xpart 展示
+# 2024-2025 计算机系统III Xpart 展示
 
 高玮轩 赵嘉瑞
 
@@ -28,13 +28,25 @@ revealOptions:
 
 ## 成果概述
 
-TBD
+- 硬件：64 位 RISC-V 处理器
+    - Forwarding to solve Race Condition (Sys2 lab2)
+    - Branch Prediction (Sys3 lab1)
+    - MMU (Sys3 lab6)
+        - 三级页表
+- 软件：OS Kernel (Sys3 lab3)
+    - ELF Loader
+    - Virtual File System & FAT32
+    - RIKESHell
 
 <!--v-->
 
 ## 五级流水线 CPU 运行 kernel 结果
 
-TBD
+<!-- ![./asset/make_kernel_output.png](./asset/make_kernel_output.png) -->
+
+<div style="display: flex; align-items: center; justify-content: center;">
+<img src="./asset/make_kernel_output.png" alt="make_kernel_output" style="width: 55%; height: 20%;">
+</div>
 
 <!--s-->
 
@@ -50,13 +62,11 @@ TBD
 
 ## MMU with Branch Prediction
 
-TBD
-
-<!--v-->
-
-## MMU 状态机
-
-TBD
+- 未开启 Sv39 虚拟地址
+    - 物理地址、握手信号直连，无需改动
+- 开启虚拟地址时如果预测错误
+    - 不要使用错误的 PC 值遍历页表
+    - 等待 PC 恢复后再更新 PC 并继续
 
 <!--s-->
 
@@ -71,6 +81,8 @@ TBD
 <!--v-->
 
 ## I/O
+
+- read syscall
 
 TBD
 
@@ -89,6 +101,13 @@ TBD
 <!--v-->
 
 ## Shell
+
+- Along with VFS
+- echo
+- cat
+<!-- - ls -->
+- exit
+- edit
 
 <!--s-->
 
