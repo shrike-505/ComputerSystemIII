@@ -42,7 +42,7 @@ void syscall_handler(struct pt_regs *regs){
         file_close(file);
         regs->x[10] = 0; // success
       } else {
-        printk("[U] syscall close: unsupported fd = %ld", regs->x[10]);
+        printk("[U] syscall close: unsupported fd = %ld\n", regs->x[10]);
         regs->x[10] = -1; // error
       }
       break;
@@ -55,11 +55,11 @@ void syscall_handler(struct pt_regs *regs){
         if (file->lseek) {
           regs->x[10] = file->lseek(file, offset, whence);
         } else {
-          printk("[U] syscall lseek: lseek not implemented for fd = %ld", fd);
+          printk("[U] syscall lseek: lseek not implemented for fd = %ld\n", fd);
           regs->x[10] = -1; // error
         }
       } else {
-        printk("[U] syscall lseek: unsupported fd = %ld", regs->x[10]);
+        printk("[U] syscall lseek: unsupported fd = %ld\n", regs->x[10]);
         regs->x[10] = -1; // error
       }
       break;
@@ -71,7 +71,7 @@ void syscall_handler(struct pt_regs *regs){
         regs->x[10] = file->read(file, buf, regs->x[12]);
       }
       else {
-        printk("[U] syscall read: unsupported fd = %ld", regs->x[10]);
+        printk("[U] syscall read: unsupported fd = %ld\n", regs->x[10]);
         regs->x[10] = -1;
       }
       break;
@@ -83,7 +83,7 @@ void syscall_handler(struct pt_regs *regs){
         regs->x[10] = file->write(file, buf, regs->x[12]);
       }
       else {
-        printk("[U] syscall write: unsupported fd = %ld", regs->x[10]);
+        printk("[U] syscall write: unsupported fd = %ld\n", regs->x[10]);
         regs->x[10] = -1;
       }
       break;
@@ -95,7 +95,7 @@ void syscall_handler(struct pt_regs *regs){
       regs->x[10] = sys_clone(regs);
       break;
     default:
-      printk("[U] syscall: unsupported syscall number = %ld", syscall_num);
+      printk("[U] syscall: unsupported syscall number = %ld\n", syscall_num);
       regs->x[10] = -1;
       break;
   }
