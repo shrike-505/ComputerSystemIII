@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <syscalls.h>
+#include <printk.h>
 #include <fs.h>
 
 // define some tests
@@ -206,8 +207,7 @@ int main(void) {
 
 // credits to https://github.com/ZJU-SEC/os24fall-stu
 
-#define CAT_BUF_SIZE 10000
-
+int in_shell;
 char string_buf[2048];
 char filename[2048];
 
@@ -262,7 +262,6 @@ void parse_cmd(char *cmd, int len) {
     else if (cmd[0] == 'c' && cmd[1] == 'a' && cmd[2] == 't') {
         cmd += 3;
         char *filename = get_param(cmd);
-        char last_char;
         char buf[1536];
         int fd = fopen(filename, F_READ);
         if (fd == -1) {
@@ -273,92 +272,132 @@ void parse_cmd(char *cmd, int len) {
         printf("%s\n", buf);
         fclose(fd);
 
-    // } else if (cmd[0] == 'e' && cmd[1] == 'd' && cmd[2] == 'i' && cmd[3] == 't' ) {
-    //     cmd += 4;
-    //     while (*cmd == ' ' && *cmd != '\0') {
-    //         cmd++;
+    } else if (cmd[0] == 'e' && cmd[1] == 'd' && cmd[2] == 'i' && cmd[3] == 't' ) {
+        cmd += 4;
+        while (*cmd == ' ' && *cmd != '\0') {
+            cmd++;
+        }
+
+        // Get filename(path)
+        char* temp = get_param(cmd);
+        int len = strlen(temp); 
+        char filename[len + 1];
+        for (int i = 0; i < len; i++) {
+            filename[i] = temp[i];
+        }
+        filename[len] = '\0';
+        cmd += len;
+
+        while (*cmd == ' ' && *cmd != '\0') {
+            cmd++;
+        }
+
+        // Get offset
+        temp = get_param(cmd);
+        len = strlen(temp);
+        char offset[len + 1];
+        for (int i = 0; i < len; i++) {
+            if (temp[i] < '0' || temp[i] > '9') {
+                printf("invalid offset: %s\n", temp);
+                return;
+            }
+            offset[i] = temp[i];
+        }
+        offset[len] = '\0';
+        cmd += len;
+
+        while (*cmd == ' ' && *cmd != '\0') {
+            cmd++;
+        }
+
+        // Get write content
+        temp = get_string(cmd);
+        len = strlen(temp);
+        char content[len + 1];
+        for (int i = 0; i < len; i++) {
+            content[i] = temp[i];
+        }
+        content[len] = '\0';
+        cmd += len;
+
+        int offset_int = atoi(offset);
+
+        int fd = fopen(filename, F_WRITE);
+        lseek(fd, offset_int, SEEK_SET);
+        fwrite(fd, content, len, offset_int);
+        fclose(fd);
+    // } else if (cmd[0] == 'l' && cmd[1] == 's') 
+    // {
+    //     char **filenames = get_filenames();
+    //     if (filenames == NULL) {
+    //         printf("no files found\n");
+    //         return;
     //     }
-
-    //     // Get filename(path)
-    //     char* temp = get_param(cmd);
-    //     int len = strlen(temp); 
-    //     char filename[len + 1];
-    //     for (int i = 0; i < len; i++) {
-    //         filename[i] = temp[i];
-    //     }
-    //     filename[len] = '\0';
-    //     cmd += len;
-
-    //     while (*cmd == ' ' && *cmd != '\0') {
-    //         cmd++;
-    //     }
-
-    //     // Get offset
-    //     temp = get_param(cmd);
-    //     len = strlen(temp);
-    //     char offset[len + 1];
-    //     for (int i = 0; i < len; i++) {
-    //         if (temp[i] < '0' || temp[i] > '9') {
-    //             printf("invalid offset: %s\n", temp);
-    //             return;
-    //         }
-    //         offset[i] = temp[i];
-    //     }
-    //     offset[len] = '\0';
-    //     cmd += len;
-
-    //     while (*cmd == ' ' && *cmd != '\0') {
-    //         cmd++;
-    //     }
-
-    //     // Get write content
-    //     temp = get_string(cmd);
-    //     len = strlen(temp);
-    //     char content[len + 1];
-    //     for (int i = 0; i < len; i++) {
-    //         content[i] = temp[i];
-    //     }
-    //     content[len] = '\0';
-    //     cmd += len;
-
-    //     int offset_int = atoi(offset);
-
-    //     int fd = fopen(filename, F_WRITE);
-    //     lseek(fd, offset_int, SEEK_SET);
-    //     fwrite(fd, content, len, offset_int);
-    //     fclose(fd);
-    // } else {
-    //     printf("command not found: %s\n", cmd);
+    //     for (int i = 0; filenames[i] != NULL; i++) {
+    //         printf("%s\n", filenames[i]);
+    //     }    
+    } else if(cmd[0] == 'h' && cmd[1] == 'e' && cmd[2] == 'l' && cmd[3] == 'p') 
+    {
+        printf("RIKESHell commands:\n");
+        printf("    echo <content> - Print content to stdout\n");
+        printf("    cat <filename> - Print file content to stdout\n");
+        printf("    edit <filename> <offset> <content> - Edit file at offset with content\n");
+        printf("    help - Show this help message\n");
+        printf("    exit - Exit the shell\n");
+    } 
+    else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't')
+    {
+        in_shell = 0;
+        printf("Exiting RIKESHell...\n");
+        return;
+    } 
+    else
+    {
+        printf("command not found: %s\n", cmd);
+        return;
     }
 }
 
 int main() {
-    write(1, "hello, stdout!\n", 15);
-    write(2, "hello, stderr!\n", 15);
+    printf("hello, stdout!\n");
     char read_buf[2];
     char line_buf[128];
     int char_in_line = 0;
-    printf(YELLOW "RIKESHell > " CLEAR);
+    in_shell = 1;
+    printf(BLUE "RIKESHell > " CLEAR);
     while (1) {
-        read(0, read_buf, 1);
+        getcharn(read_buf, 1);
         if (read_buf[0] == '\r' || read_buf[0] == '\n') {
-            write(1, "\n", 1);
+            printf("\n");
         } else if (read_buf[0] == 0x7f) {
             if (char_in_line > 0) {
-                write(1, "\b \b", 3);
+                printf("\b \b");
                 char_in_line--;
             }
             continue;
         }
-        write(1, read_buf, 1);
+        
+        // write(1, read_buf, 1);
+        printf("%c", read_buf[0]);
         if (read_buf[0] == '\r' || read_buf[0] == '\n') { // 读完一行
             line_buf[char_in_line] = '\0';
             parse_cmd(line_buf, char_in_line);
             char_in_line = 0;
-            printf(YELLOW "RIKESHEll > " CLEAR);
+            printf(BLUE "RIKESHell > " CLEAR);
         } else {
             line_buf[char_in_line++] = read_buf[0];
         }
+
+        if (in_shell == 0)
+        {
+            break;
+        }
+        
+    }
+    register const void *const sp asm("sp");
+    while (1) {
+        printf("\x1b[44m[U]\x1b[0m [PID = %d, sp = %p]\n", getpid(), sp);
+        delay(DELAY_TIME);
     }
     return 0;
 }

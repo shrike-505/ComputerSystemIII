@@ -12,7 +12,6 @@
 //#define NO_PG_FAULT
 //#define NO_FORK
 //#define NO_ELF
-
 #ifdef NO_FORK
 #define INIT_TASKS NR_TASKS
 #else
