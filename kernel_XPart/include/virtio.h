@@ -1,9 +1,7 @@
 #ifndef VIRTIO_H
 #define VIRTIO_H
 
-#include <printk.h>
 #include <stdint.h>
-#include <private_kdefs.h>
 
 #define VIRTIO_MMIO_MAGIC_VALUE   0x000
 #define VIRTIO_MMIO_VERSION       0x004

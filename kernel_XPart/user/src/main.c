@@ -184,6 +184,14 @@ int main(void) {
 
   printf("\x1b[44m[U]\x1b[0m [PID = %d, sp = %p]\n", getpid(), sp);
 
+  int fd = fopen("email", F_READ); // open a file to test file system
+  char buf[1536];
+  fread(fd, buf, sizeof(buf), 0); // read the file
+  printf("\x1b[44m[U]\x1b[0m [PID = %d] read %ld bytes from file 'email':\n", getpid(), sizeof(buf));
+  printf("%s\n", buf); // print the content of the file
+  fclose(fd); // close the file
+  printf("\x1b[44m[U]\x1b[0m [PID = %d] file opened and closed successfully\n", getpid());
+
   while (1) {
     char c[8];
     getcharn(c, 8);
