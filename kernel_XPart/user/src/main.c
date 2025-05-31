@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <syscalls.h>
+#include <fs.h>
 
 // define some tests
 #define PFH1 1001
@@ -205,7 +206,7 @@ int main(void) {
 
 // credits to https://github.com/ZJU-SEC/os24fall-stu
 
-#define CAT_BUF_SIZE 509
+#define CAT_BUF_SIZE 10000
 
 char string_buf[2048];
 char filename[2048];
@@ -257,39 +258,28 @@ void parse_cmd(char *cmd, int len) {
         cmd += len;
         write(1, echo_content, len);
         write(1, "\n", 1);
-    // } 
-    // else if (cmd[0] == 'c' && cmd[1] == 'a' && cmd[2] == 't') {
-    //     char *filename = get_param(cmd + 3);
-    //     char last_char;
-    //     int fd = open(filename); // open syscall TBD, 在读取文件之前，首先需要打开对应的文件，这需要实现openat syscall，调用号为 56。你需要寻找一个空闲的文件描述符，然后调用 file_open 函数来初始化这个文件描述符。
-    //     if (fd == -1) {
-    //         printf("can't open file: %s\n", filename);
-    //         return;
-    //     }
-    //     char cat_buf[CAT_BUF_SIZE];
-    //     while (1) {
-    //         int num_chars = read(fd, cat_buf, CAT_BUF_SIZE);
-    //         if (num_chars == 0) {
-    //             if (last_char != '\n') {
-    //                 printf("$\n");
-    //             }
-    //             break;
-    //         }
-    //         for (int i = 0; i < num_chars; i++) {
-    //             if (cat_buf[i] == 0) {
-    //                 write(1, "x", 1);
-    //             } else {
-    //                 write(1, &cat_buf[i], 1);
-    //             }
-    //             last_char = cat_buf[i];
-    //         }
-    //     }
-    //     close(fd); // close syscall TBD
+    } 
+    else if (cmd[0] == 'c' && cmd[1] == 'a' && cmd[2] == 't') {
+        cmd += 3;
+        char *filename = get_param(cmd);
+        char last_char;
+        char buf[1536];
+        int fd = fopen(filename, F_READ);
+        if (fd == -1) {
+            printf("can't open file: %s\n", filename);
+            return;
+        }
+        fread(fd, buf, sizeof(buf), 0);
+        printf("%s\n", buf);
+        fclose(fd);
+
     // } else if (cmd[0] == 'e' && cmd[1] == 'd' && cmd[2] == 'i' && cmd[3] == 't' ) {
     //     cmd += 4;
     //     while (*cmd == ' ' && *cmd != '\0') {
     //         cmd++;
     //     }
+
+    //     // Get filename(path)
     //     char* temp = get_param(cmd);
     //     int len = strlen(temp); 
     //     char filename[len + 1];
@@ -302,10 +292,16 @@ void parse_cmd(char *cmd, int len) {
     //     while (*cmd == ' ' && *cmd != '\0') {
     //         cmd++;
     //     }
+
+    //     // Get offset
     //     temp = get_param(cmd);
     //     len = strlen(temp);
     //     char offset[len + 1];
     //     for (int i = 0; i < len; i++) {
+    //         if (temp[i] < '0' || temp[i] > '9') {
+    //             printf("invalid offset: %s\n", temp);
+    //             return;
+    //         }
     //         offset[i] = temp[i];
     //     }
     //     offset[len] = '\0';
@@ -314,6 +310,8 @@ void parse_cmd(char *cmd, int len) {
     //     while (*cmd == ' ' && *cmd != '\0') {
     //         cmd++;
     //     }
+
+    //     // Get write content
     //     temp = get_string(cmd);
     //     len = strlen(temp);
     //     char content[len + 1];
@@ -325,12 +323,12 @@ void parse_cmd(char *cmd, int len) {
 
     //     int offset_int = atoi(offset);
 
-    //     int fd = open(filename, O_RDWR);
+    //     int fd = fopen(filename, F_WRITE);
     //     lseek(fd, offset_int, SEEK_SET);
-    //     write(fd, content, len);
-    //     close(fd);
-    } else {
-        printf("command not found: %s\n", cmd);
+    //     fwrite(fd, content, len, offset_int);
+    //     fclose(fd);
+    // } else {
+    //     printf("command not found: %s\n", cmd);
     }
 }
 
@@ -343,7 +341,7 @@ int main() {
     printf(YELLOW "RIKESHell > " CLEAR);
     while (1) {
         read(0, read_buf, 1);
-        if (read_buf[0] == '\r') {
+        if (read_buf[0] == '\r' || read_buf[0] == '\n') {
             write(1, "\n", 1);
         } else if (read_buf[0] == 0x7f) {
             if (char_in_line > 0) {
@@ -353,7 +351,7 @@ int main() {
             continue;
         }
         write(1, read_buf, 1);
-        if (read_buf[0] == '\r') {
+        if (read_buf[0] == '\r' || read_buf[0] == '\n') { // 读完一行
             line_buf[char_in_line] = '\0';
             parse_cmd(line_buf, char_in_line);
             char_in_line = 0;
