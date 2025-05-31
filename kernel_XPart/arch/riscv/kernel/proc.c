@@ -244,7 +244,9 @@ void schedule(void) {
         for (uint64_t i = 1; i < avail_pid; i++){
             if (task[i]->state == TASK_RUNNING){
                 task[i]->counter = task[i]->priority;
+                #if USER_MAIN != SHELL
                 printk("SET [PID = %ld, PRIORITY = %ld, COUNTER = %ld]\n", task[i]->pid, task[i]->priority, task[i]->counter);
+                #endif
             }
             if (task[i]->state == TASK_RUNNING && task[i]->counter > next->counter){
             next = task[i];
