@@ -221,6 +221,9 @@ int atoi(char* str) {
 }
 
 char *get_param(char *cmd) {
+    for (int i = 0; i < 2048; i++) {
+        string_buf[i] = '\0'; // clear the buffer
+    }
     while (*cmd == ' ') {
         cmd++;
     }
@@ -229,6 +232,7 @@ char *get_param(char *cmd) {
         string_buf[pos++] = *(cmd++);
     }
     string_buf[pos] = '\0';
+    //printf("[DEBUG] get_param: %s\n", string_buf);
     return string_buf;
 }
 
@@ -323,7 +327,6 @@ void parse_cmd(char *cmd, int len) {
         int offset_int = atoi(offset);
 
         int fd = fopen(filename, F_WRITE);
-        lseek(fd, offset_int, SEEK_SET);
         fwrite(fd, content, len, offset_int);
         fclose(fd);
     // } else if (cmd[0] == 'l' && cmd[1] == 's') 
@@ -381,6 +384,7 @@ int main() {
         printf("%c", read_buf[0]);
         if (read_buf[0] == '\r' || read_buf[0] == '\n') { // 读完一行
             line_buf[char_in_line] = '\0';
+            //printf("[DEBUG] line_buf = '%s'\n", line_buf);
             parse_cmd(line_buf, char_in_line);
             char_in_line = 0;
             printf(BLUE "RIKESHell > " CLEAR);
