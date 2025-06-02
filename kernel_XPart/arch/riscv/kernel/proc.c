@@ -8,6 +8,7 @@
 #include <virtio.h>
 #include <elf.h>
 #include <fs.h>
+#include <malloc.h>
 
 //#define NO_PG_FAULT
 //#define NO_FORK
@@ -203,6 +204,11 @@ void task_init(void) {
         #else
         do_mmap(task[i]->mm, (void *)va_sp, u_stack_sz, VM_READ | VM_WRITE | VM_ANON);
         #endif
+
+        //mmap user heap
+        uint64_t u_heap_sz = USER_HEAP_SIZE;
+        uint64_t va_heap = USER_HEAP;
+        do_mmap(task[i]->mm, (void *)va_heap, u_heap_sz, VM_READ | VM_WRITE | VM_ANON);
 
         //printk("INIT TASK [PID = %ld, PRIORITY = %ld, COUNTER = %ld, ra = %lx, sp = %lx]\n", task[i]->pid, task[i]->priority, task[i]->counter, task[i]->thread.ra, task[i]->thread.sp);
     }
