@@ -80,9 +80,12 @@ int var = 0;
 int main(void) {
   pid_t pid = fork();
   const char *ident = pid ? "PARN" : "CHLD";
+  int* malloc_var = (int*)malloc(sizeof(int));
 
   while (1) {
     printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] var = %d\n", ident, getpid(), var++);
+    printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] malloc_var = %d @ 0x%lx\n", ident, getpid(), *malloc_var, (unsigned long)malloc_var);
+    *malloc_var = var; // update malloc_var to point to the current var value
     delay(DELAY_TIME / 2 + rand() % DELAY_TIME);
   }
 }
@@ -93,19 +96,26 @@ int var = 0;
 char space[0x2000] __attribute__((aligned(0x1000)));
 
 int main(void) {
+  char* malloc_str1 = (char*)malloc(0x100);
+  memcpy(malloc_str1, "ZJU Sys3 Malloc", 16);
   for (int i = 0; i < 3; i++) {
     printf("\x1b[44m[U]\x1b[0m [PID = %d] var = %d\n", getpid(), var++);
+    printf("\x1b[44m[U]\x1b[0m [PID = %d] malloc_str1 = %s @ 0x%lx\n", getpid(), malloc_str1, (unsigned long)malloc_str1);
     delay(DELAY_TIME);
   }
 
+  free(malloc_str1); // free the malloc_str1 memory
   memcpy(&space[0x1000], "ZJU Sys3 Lab5", 14);
 
   pid_t pid = fork();
   const char *ident = pid ? "PARN" : "CHLD";
+  char* malloc_str2 = (char*)malloc(0x100);
+  memcpy(malloc_str2, "ZJU Sys3 Fork2", 15);
 
   printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] Message: %s @ 0x%lx\n", ident, getpid(), &space[0x1000], (unsigned long)&space[0x1000]);
   while (1) {
     printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] var = %d\n", ident, getpid(), var++);
+    printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] malloc_str2 = %s @ 0x%lx\n", ident, getpid(), malloc_str2, (unsigned long)malloc_str2);
     delay(DELAY_TIME / 2 + rand() % DELAY_TIME);
   }
 }
