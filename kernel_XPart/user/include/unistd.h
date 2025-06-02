@@ -26,5 +26,6 @@ ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 pid_t getpid(void);
 pid_t fork(void);
+ssize_t execve(const char *filename, char *const argv[], char *const envp[]);
 
 #endif

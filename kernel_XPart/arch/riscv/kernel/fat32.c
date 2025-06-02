@@ -257,6 +257,7 @@ int fat32_write_file(uint64_t virtio_base, struct fat32_file *file, const void *
 {
     if (file == NULL || buf == NULL || len == 0)
     {
+        printk("fat32_write_file: Invalid parameters\n");
         return -1; // Invalid parameters
     }
 
@@ -264,6 +265,7 @@ int fat32_write_file(uint64_t virtio_base, struct fat32_file *file, const void *
     uint32_t size = file->size;
     if (offset > size)
     {
+        printk("fat32_write_file: Offset exceeds file size\n");
         return -1; // Write exceeds file size
     }
     
@@ -274,7 +276,7 @@ int fat32_write_file(uint64_t virtio_base, struct fat32_file *file, const void *
     uint32_t start_sector = sector + offset / VIRTIO_BLK_SECTOR_SIZE;
     uint32_t start_offset = offset % VIRTIO_BLK_SECTOR_SIZE;
     printk("Writing file from cluster: %u, size: %u bytes, offset: %lu\n", cluster, size, offset);
-    printk("Starting sector: %lu, start_offset: %u\n", start_sector, start_offset);
+    //printk("Starting sector: %lu, start_offset: %u\n", start_sector, start_offset);
 
     while (bytes_written < len)
     {
@@ -288,7 +290,7 @@ int fat32_write_file(uint64_t virtio_base, struct fat32_file *file, const void *
         uint64_t write_end = start_offset + bytes_to_write;
         virtio_blk_write_sector(virtio_base, start_sector, sector_buf);
         bytes_written += bytes_to_write;
-        printk("Wrote %lu bytes to sector %lu, start_offset: %u\n", bytes_to_write, start_sector, start_offset);
+        //printk("Wrote %lu bytes to sector %lu, start_offset: %u\n", bytes_to_write, start_sector, start_offset);
         start_offset = 0; // After the first write, start_offset is always 0
         if (bytes_written >= len)
         {
@@ -303,22 +305,24 @@ int fat32_write_file(uint64_t virtio_base, struct fat32_file *file, const void *
         }
         cluster = next_cluster;
         start_sector = fat32_volume.first_data_sec + (cluster - 2) * fat32_volume.sec_per_cluster;
-        printk("Next cluster: %u, Next sector: %lu\n", cluster, start_sector);
+        //printk("Next cluster: %u, Next sector: %lu\n", cluster, start_sector);
     }
 
     if (offset + bytes_written > size)
     {
         file->size = offset + bytes_written; // Update file size if it has increased
     }
+    printk("Total bytes written: %lu, New file size: %u\n", bytes_written, file->size);
     // Update the directory entry with the new size
     uint32_t rootdir_cluster = fat32_bpb.root_clus;
-    uint32_t rootdir_sector = fat32_volume.first_data_sec + (cluster - 2) * fat32_volume.sec_per_cluster;
+    uint32_t rootdir_sector = fat32_volume.first_data_sec + (rootdir_cluster - 2) * fat32_volume.sec_per_cluster;
     char rootdir_entry_buf[VIRTIO_BLK_SECTOR_SIZE];
     for (int i = 0; i < fat32_volume.sec_per_cluster; i++)
     {
         virtio_blk_read_sector(virtio_base, rootdir_sector + i, rootdir_entry_buf);
         for (int j = 0; j < VIRTIO_BLK_SECTOR_SIZE / sizeof(struct fat32_dir_entry); j++)
         {
+            //printk_blk_rawdata((const char *)rootdir_entry_buf);
             struct fat32_dir_entry *dir_entry = (struct fat32_dir_entry *)(rootdir_entry_buf + j * sizeof(struct fat32_dir_entry));
             if (dir_entry->name[0] == 0x00)
             {
@@ -329,6 +333,7 @@ int fat32_write_file(uint64_t virtio_base, struct fat32_file *file, const void *
                 continue; // Skip deleted or long name entries
             }
             char *name_cmp = (char *)dir_entry->name;
+            //printk("Comparing: %.8s.%.3s with %s\n", dir_entry->name, dir_entry->ext, file->name);
             int cmp = strncmp(name_cmp, file->name, 11);
             if (cmp == 0)
             {

@@ -118,3 +118,17 @@ pid_t fork(void) {
                : "a0", "a7", "memory");
   return ret;
 }
+
+ssize_t execve(const char *filename, char *const argv[], char *const envp[]) {
+  ssize_t ret;
+  asm volatile("li a7, %1\n\t"
+               "mv a0, %2\n\t"
+               "mv a1, %3\n\t"
+               "mv a2, %4\n\t"
+               "ecall\n\t"
+               "mv %0, a0\n\t"
+               : "=r"(ret)
+               : "i"(__NR_execve), "r"(filename), "r"(argv), "r"(envp)
+               : "a0", "a1", "a2", "a7", "memory");
+  return ret;
+}

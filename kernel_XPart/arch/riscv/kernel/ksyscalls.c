@@ -1,6 +1,7 @@
 #include <syscalls.h>
 #include <ksyscalls.h>
 #include <fork.h>
+#include <execve.h>
 
 int sys_open (const char *pathname, int flags) {
   int fd;
@@ -68,4 +69,8 @@ long sys_getpid(void) {
 
 long sys_clone(struct pt_regs *regs) {
   return do_fork(regs);
+}
+
+long sys_execve(const char *filename, char *const argv[], char *const envp[]) {
+  return do_execve(filename, argv, envp);
 }

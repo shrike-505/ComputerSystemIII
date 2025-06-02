@@ -60,6 +60,12 @@ void file_init()
 
     file_init_fds();
 
+    // fat32_create_file(virtio_base, "hello.elf");
+    // int fd = file_open(&files.fd_array[avail_file_desc], "hello.elf", F_READ | F_WRITE);
+    // char* content = "";
+    // file_write(&files.fd_array[fd], content, 47265);
+    // file_close(&files.fd_array[fd]);
+
     printk("...file_system_init done!\n");
 }
 
@@ -148,17 +154,22 @@ int64_t file_write(struct file *file, const void *buf, uint64_t len)
 {
     if (file == NULL || !file->opened || !(file->perms & F_WRITE) || buf == NULL || len == 0)
     {
+        printk("file_write: Invalid parameters\n");
+        printk("file_write: file = %p, opened = %d, perms = %d, buf = %p, len = %lu\n", 
+               file, file->opened, file->perms, buf, len);
         return -1; // Invalid parameters
     }
     
     if (file->fs_type != FS_TYPE_FAT32)
     {
+        printk("file_write: Unsupported file system type %d\n", file->fs_type);
         return -1; // Unsupported file system type
     }
 
     int res = fat32_write_file(virtio_base, &file->fat32_file, buf, len, file->cfo);
     if (res < 0)
     {
+        printk("file_write: Write failed with error %d\n", res);
         return -1; // Write failed
     }
 

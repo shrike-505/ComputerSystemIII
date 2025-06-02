@@ -3404,5 +3404,6 @@ enum
 #define R_LARCH_32_PCREL                    99
 #define R_LARCH_RELAX                       100
 
+void load_elf(struct task_struct *task, char *start, char *end);
 
 #endif

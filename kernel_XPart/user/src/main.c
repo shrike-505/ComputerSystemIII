@@ -80,12 +80,15 @@ int var = 0;
 int main(void) {
   pid_t pid = fork();
   const char *ident = pid ? "PARN" : "CHLD";
-  int* malloc_var = (int*)malloc(sizeof(int));
+  if (pid == 0){
+    execve("hello.elf", NULL, NULL);
+  }
+  //int* malloc_var = (int*)malloc(sizeof(int));
 
   while (1) {
     printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] var = %d\n", ident, getpid(), var++);
-    printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] malloc_var = %d @ 0x%lx\n", ident, getpid(), *malloc_var, (unsigned long)malloc_var);
-    *malloc_var = var; // update malloc_var to point to the current var value
+    //printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] malloc_var = %d @ 0x%lx\n", ident, getpid(), *malloc_var, (unsigned long)malloc_var);
+    //*malloc_var = var; // update malloc_var to point to the current var value
     delay(DELAY_TIME / 2 + rand() % DELAY_TIME);
   }
 }
