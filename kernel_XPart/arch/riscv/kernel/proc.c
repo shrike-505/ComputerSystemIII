@@ -9,6 +9,7 @@
 #include <elf.h>
 #include <fs.h>
 #include <malloc.h>
+#include <execve.h>
 
 //#define NO_PG_FAULT
 //#define NO_FORK
@@ -117,8 +118,7 @@ void load_elf(struct task_struct *task, char *start, char *end) {
 
             char* va_cpy = (char *)alloc_pages( sz/PGSIZE + 1 );
             printk("Loading ELF segment: va = 0x%lx, sz = 0x%lx, flags = 0x%lx, offset = 0x%lx -> 0x%lx\n", va, sz, flags, phdr[i].p_offset, (uint64_t)va_cpy);
-            extern char _suapp[], _euapp[];
-            uint64_t va_src = USER_START + phdr[i].p_offset + (uint64_t)_suapp;
+            uint64_t va_src = USER_START + phdr[i].p_offset + (uint64_t)start;
             //printk("Copying from source va = 0x%lx -> dest = 0x%lx\n", va_src, va_cpy);
             memcpy(va_cpy, (void *)va_src, sz);
             uint64_t pa = (uint64_t)va_cpy - PA2VA_OFFSET;
@@ -126,7 +126,7 @@ void load_elf(struct task_struct *task, char *start, char *end) {
             if (flags & VM_READ) perm |= PTE_R;
             if (flags & VM_WRITE) perm |= PTE_W;
             if (flags & VM_EXEC) perm |= PTE_X;
-            create_mapping(task->pgd, (void *)va, (void *)pa, sz, perm);
+            create_mapping((uint64_t)task->pgd, (void *)va, (void *)pa, sz, perm);
         }
     }
 

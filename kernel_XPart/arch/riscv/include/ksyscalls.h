@@ -12,5 +12,6 @@ long sys_getpid(void);
 
 struct pt_regs;
 long sys_clone(struct pt_regs *regs);
+long sys_execve(const char *filename, char *const argv[], char *const envp[]);
 
 #endif

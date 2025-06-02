@@ -20,6 +20,7 @@ export LDFLAGS := -lgcc -Wl,--nmagic -Wl,--gc-sections
 all:
 	$(MAKE) -C lib all
 	$(MAKE) -C user all
+	$(MAKE) -C user_elf all
 	$(MAKE) -C arch/riscv all
 	$(LD) -T arch/riscv/kernel/vmlinux.lds user/uapp.o arch/riscv/kernel/*.o lib/*.o -o vmlinux
 	mkdir -p arch/riscv/boot
@@ -64,6 +65,7 @@ spike_bridge:
 clean:
 	$(MAKE) -C lib clean
 	$(MAKE) -C user clean
+	$(MAKE) -C user_elf clean
 	$(MAKE) -C arch/riscv clean
 	$(MAKE) -C "$(SNPRINTF_TEST_DIR)" -f "$(SNPRINTF_MAKEFILE)" clean
 	rm -rf vmlinux vmlinux.asm snprintf_test System.map arch/riscv/boot
