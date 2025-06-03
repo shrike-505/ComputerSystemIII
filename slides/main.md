@@ -33,7 +33,8 @@ revealOptions:
     - Branch Prediction (Sys3 lab1)
     - MMU (Sys3 lab6)
         - 三级页表
-- 软件：OS Kernel (Sys3 lab3)
+- 软件：OS Kernel (Sys3 lab5)
+    - PGF Handlers
     - ELF Loader
     - Virtual File System & FAT32
     - RIKESHell
@@ -42,7 +43,6 @@ revealOptions:
 
 ## 五级流水线 CPU 运行 kernel 结果
 
-<!-- ![./asset/make_kernel_output.png](./asset/make_kernel_output.png) -->
 
 <div style="display: flex; align-items: center; justify-content: center;">
 <img src="./asset/make_kernel_output.png" alt="make_kernel_output" style="width: 55%; height: 20%;">
@@ -67,6 +67,8 @@ revealOptions:
 - 开启虚拟地址时如果预测错误
     - 不要使用错误的 PC 值遍历页表
     - 等待 PC 恢复后再更新 PC 并继续
+
+![MMU with Branch Prediction](./asset/mmu_wave.png)
 
 <!--s-->
 
@@ -100,14 +102,19 @@ TBD
 
 <!--v-->
 
-## Shell
+## rike-Shell
+
+- Along with I/O
+    - echo
 
 - Along with VFS
-- echo
-- cat
-<!-- - ls -->
+    - cat
+    - edit
+    - run
+        - `execve()`
+    
 - exit
-- edit
+
 
 <!--s-->
 
