@@ -13,6 +13,30 @@ pid_t getpid(void) {
   return ret;
 }
 
+pid_t waitpid(pid_t pid, int *status, int options) {
+  pid_t ret;
+  asm volatile("li a7, %1\n\t"
+               "mv a0, %2\n\t"
+               "mv a1, %3\n\t"
+               "mv a2, %4\n\t"
+               "ecall\n\t"
+               "mv %0, a0\n\t"
+               : "=r"(ret)
+               : "i"(__NR_waitpid), "r"(pid), "r"(status), "r"(options)
+               : "a0", "a1", "a2", "a7", "memory");
+  return ret;
+}
+
+int exit(int error_code) {
+  asm volatile("li a7, %0\n\t"
+               "mv a0, %1\n\t"
+               "ecall\n\t"
+               :
+               : "i"(__NR_exit), "r"(error_code)
+               : "a0", "a7", "memory");
+  return 0; // This line will not be reached, but is needed to avoid warnings.
+}
+
 int fopen(const char *pathname, int flags) {
   int fd;
   asm volatile("li a7, %1\n\t"
@@ -129,6 +153,20 @@ ssize_t execve(const char *filename, char *const argv[], char *const envp[]) {
                "mv %0, a0\n\t"
                : "=r"(ret)
                : "i"(__NR_execve), "r"(filename), "r"(argv), "r"(envp)
+               : "a0", "a1", "a2", "a7", "memory");
+  return ret;
+}
+
+int dup3(int oldfd, int newfd, int flags) {
+  int ret;
+  asm volatile("li a7, %1\n\t"
+               "mv a0, %2\n\t"
+               "mv a1, %3\n\t"
+               "mv a2, %4\n\t"
+               "ecall\n\t"
+               "mv %0, a0\n\t"
+               : "=r"(ret)
+               : "i"(__NR_dup3), "r"(oldfd), "r"(newfd), "r"(flags)
                : "a0", "a1", "a2", "a7", "memory");
   return ret;
 }
