@@ -7,6 +7,7 @@
 #include <syscalls.h>
 #include <printk.h>
 #include <fs.h>
+#include <readline.h>
 
 // define some tests
 #define PFH1 1001
@@ -80,8 +81,12 @@ int var = 0;
 int main(void) {
   pid_t pid = fork();
   const char *ident = pid ? "PARN" : "CHLD";
+  if (pid != 0){
+    waitpid(pid, NULL, 0); // wait for the child to finish
+  }
+  printf("\x1b[44m[U-%s]\x1b[0m [PID = %d] fork returns %d\n", ident, getpid(), pid);
   if (pid == 0){
-    execve("hello.elf", NULL, NULL);
+    execve("exit.elf", NULL, NULL);
   }
   //int* malloc_var = (int*)malloc(sizeof(int));
 
@@ -221,7 +226,9 @@ int main(void) {
 // credits to https://github.com/ZJU-SEC/os24fall-stu
 
 int in_shell;
-char string_buf[2048];
+char string_buf[32][64];
+char string_buf2[2048];
+int ind;
 char filename[2048];
 
 int atoi(char* str) {
@@ -234,19 +241,20 @@ int atoi(char* str) {
 }
 
 char *get_param(char *cmd) {
-    for (int i = 0; i < 2048; i++) {
-        string_buf[i] = '\0'; // clear the buffer
+    for (int i = 0; i < 64; i++) {
+        string_buf[ind][i] = '\0'; // clear the buffer
     }
     while (*cmd == ' ') {
         cmd++;
     }
+    //printf("[DEBUG] parse cmd: %s\n", cmd);
     int pos = 0;
     while (*cmd != '\0' && *cmd != ' ') {
-        string_buf[pos++] = *(cmd++);
+        string_buf[ind][pos++] = *(cmd++);
     }
-    string_buf[pos] = '\0';
+    string_buf[ind][pos] = '\0';
     //printf("[DEBUG] get_param: %s\n", string_buf);
-    return string_buf;
+    return string_buf[ind++];
 }
 
 char *get_string(char *cmd) {
@@ -258,10 +266,10 @@ char *get_string(char *cmd) {
         cmd++;
         int pos = 0;
         while (*cmd != '"') {
-            string_buf[pos++] = *(cmd++);
+            string_buf2[pos++] = *(cmd++);
         }
-        string_buf[pos] = '\0';
-        return string_buf;
+        string_buf2[pos] = '\0';
+        return string_buf2;
     } else {
         return get_param(cmd);
     }
@@ -280,6 +288,7 @@ void parse_cmd(char *cmd, int len) {
     else if (cmd[0] == 'c' && cmd[1] == 'a' && cmd[2] == 't') {
         cmd += 3;
         char *filename = get_param(cmd);
+        //printf("[DEBUG] cat filename: %s\n", filename);
         char buf[1536];
         int fd = fopen(filename, F_READ);
         if (fd == -1) {
@@ -360,6 +369,7 @@ void parse_cmd(char *cmd, int len) {
         printf("    echo <content> - Print content to stdout\n");
         printf("    cat <filename> - Print file content to stdout\n");
         printf("    edit <filename> <offset> <content> - Edit file at offset with content\n");
+        printf("    run <exec filename> - Run a program by its filename\n");
         printf("    help - Show this help message\n");
         printf("    exit - Exit the shell\n");
     }
@@ -381,7 +391,25 @@ void parse_cmd(char *cmd, int len) {
         }
         
         char *filename = get_param(cmd);
+        //printf("[DEBUG] run filename: %s\n", filename);
+        //printf("[DEBUG] run cmd: %s\n", cmd);
+        cmd += strlen(filename);
+        char *out = get_param(cmd);
+        //printf("[DEBUG] run out: %s\n", out);
+        //printf("[DEBUG] run cmd: %s\n", cmd);
         pid_t pid = fork();
+        if (pid != 0){
+          // if (out[0] != '\0') {
+          //   int fd = fopen(out, F_WRITE);
+          //   if (fd == -1) {
+          //       printf("can't open file: %s\n", out);
+          //       return;
+          //   }
+          //   dup3(pid, 1, fd); // redirect stdout to the file
+          //   dup3(pid, 2, fd); // redirect stderr to the file
+          // }
+            waitpid(pid, NULL, 0); // wait for the child to finish
+        }
         if(pid == 0){
             execve(filename, NULL, NULL);
             return;
@@ -404,28 +432,15 @@ int main() {
     in_shell = 1;
     printf(BLUE "RIKESHell > " CLEAR);
     while (1) {
-        getcharn(read_buf, 1);
-        if (read_buf[0] == '\r' || read_buf[0] == '\n') {
-            printf("\n");
-        } else if (read_buf[0] == 0x7f) {
-            if (char_in_line > 0) {
-                printf("\b \b");
-                char_in_line--;
-            }
-            continue;
+        readline(line_buf, &char_in_line);
+        //printf("[DEBUG] line_buf = '%s', char_in_line = %d\n", line_buf, char_in_line);
+        parse_cmd(line_buf, char_in_line);
+        // clear the line buffer
+        for (int i = 0; i < 128; i++) {
+            line_buf[i] = '\0';
         }
-        
-        // write(1, read_buf, 1);
-        printf("%c", read_buf[0]);
-        if (read_buf[0] == '\r' || read_buf[0] == '\n') { // 读完一行
-            line_buf[char_in_line] = '\0';
-            //printf("[DEBUG] line_buf = '%s'\n", line_buf);
-            parse_cmd(line_buf, char_in_line);
-            char_in_line = 0;
-            printf(BLUE "RIKESHell > " CLEAR);
-        } else {
-            line_buf[char_in_line++] = read_buf[0];
-        }
+        char_in_line = 0;
+        printf(BLUE "RIKESHell > " CLEAR);
 
         if (in_shell == 0)
         {

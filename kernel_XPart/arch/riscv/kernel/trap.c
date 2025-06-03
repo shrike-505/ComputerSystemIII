@@ -12,11 +12,15 @@
 
 void clock_set_next_event(void);
 
+extern struct task_struct *task[];
 extern struct task_struct *current;
 
 extern struct files_struct files;
 
 extern uint64_t avail_file_desc;
+
+struct dup dup_cxt[8];
+int avail_dup = 0;
 
 void syscall_handler(struct pt_regs *regs)
 {
@@ -25,6 +29,16 @@ void syscall_handler(struct pt_regs *regs)
   struct file *file;
   switch (syscall_num)
   {
+  case __NR_dup3:
+  {
+    int pid = regs->x[10];
+    int old_fd = regs->x[11];
+    int new_fd = regs->x[12];
+    dup_cxt[avail_dup].pid = pid;
+    dup_cxt[avail_dup].old_fd = old_fd;
+    dup_cxt[avail_dup].new_fd = new_fd;
+    avail_dup++;
+  }
   case __NR_open:
   {
     const char *path = (const char *)regs->x[10];
@@ -61,6 +75,14 @@ void syscall_handler(struct pt_regs *regs)
   case __NR_lseek:
   {
     fd = regs->x[10];
+    for (int i = 0; i < avail_dup; i++)
+    {
+      if (dup_cxt[i].pid == current->pid && dup_cxt[i].old_fd == fd)
+      {
+        fd = dup_cxt[i].new_fd;
+        break;
+      }
+    }
     file = &files.fd_array[fd];
     if (fd >= 0 && fd < MAX_FILE_NUMBER && file->opened)
     {
@@ -118,6 +140,60 @@ void syscall_handler(struct pt_regs *regs)
   case __NR_getpid:
   {
     regs->x[10] = current->pid;
+    break;
+  }
+  case __NR_exit:
+  {
+    int error_code = regs->x[10];
+    printk("[U] syscall exit: pid = %ld, error_code = %d\n", current->pid, error_code);
+    current->state = TASK_DEAD; // mark the current task as dead
+    // for (int i = 0; i < avail_dup; i++)
+    // {
+    //   if (dup_cxt[i].pid == current->pid)
+    //   {
+    //     for (int j = i; j < avail_dup - 1; j++)
+    //     {
+    //       dup_cxt[j] = dup_cxt[j + 1];
+    //     }
+    //     avail_dup--;
+    //     i--; // adjust index after removal
+    //   }
+    // }
+    schedule(); // switch to another task
+    break;
+  }
+  case __NR_waitpid:
+  {
+    int pid = regs->x[10];
+    int *status = (int *)regs->x[11];
+    int options = regs->x[12];
+    if (pid < 0 || pid >= NR_TASKS)
+    {
+      printk("[U] syscall waitpid: unsupported pid = %d\n", pid);
+      regs->x[10] = -1; // error
+    }
+    // struct wait_t wait;
+    // wait.parent = current->pid;
+    // wait.child = pid;
+    // wait_table[avail_wait] = wait;
+    // avail_wait = (avail_wait + 1) % NR_TASKS;
+    task[pid]->priority = current->priority + 1;
+    task[pid]->counter = task[pid]->priority;
+    while (1)
+    {
+      // wait for the child process to change state
+      if (task[pid]->state == TASK_ZOMBIE || task[pid]->state == TASK_DEAD)
+      {
+        regs->x[10] = pid; // return the pid
+        task[pid]->state = TASK_DEAD; // mark as dead
+        free_pid(pid); // free the pid
+        current->state = TASK_RUNNING; // set current task to running state
+        break;
+      }
+      // yield to other processes
+      current->state = TASK_INTERRUPTIBLE; // set current task to interruptible state
+      schedule();
+    }
     break;
   }
   case __NR_clone:

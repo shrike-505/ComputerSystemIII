@@ -5,7 +5,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#define TASK_RUNNING 0 // 为了简化实验，所有的线程都只有一种状态
+#define TASK_RUNNING 0 
+#define TASK_INTERRUPTIBLE 1
+#define TASK_UNINTERRUPTIBLE 2
+#define TASK_ZOMBIE 3
+#define TASK_STOPPED 4
+#define TASK_DEAD 5
+#define TASK_TRACED 6
+#define TASK_CONTINUED 7
 
 //#define NO_PG_FAULT
 
@@ -142,5 +149,13 @@ void switch_to(struct task_struct *next);
  */
 void dummy_task(void);
 
+uint64_t get_next_avail_pid(void);
+void free_pid(uint64_t pid);
+
+struct dup{
+  int pid;
+  int old_fd;
+  int new_fd;
+};
 
 #endif

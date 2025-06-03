@@ -56,6 +56,16 @@ long sys_write(unsigned fd, const char *buf, size_t count) {
   return ret;
 }
 
+int sys_exit(int error_code) {
+  asm volatile("li a7, %0\n\t"
+               "mv a0, %1\n\t"
+               "ecall\n\t"
+               :
+               : "i"(__NR_exit), "r"(error_code)
+               : "a0", "a7", "memory");
+  return 0; // This line will not be reached, but is needed to avoid warnings.
+}
+
 long sys_getpid(void) {
   long ret;
   asm volatile("li a7, %1\n\t"
@@ -64,6 +74,20 @@ long sys_getpid(void) {
                : "=r"(ret)
                : "i"(__NR_getpid)
                : "a0", "a7", "memory");
+  return ret;
+}
+
+long sys_waitpid(int pid, int *status, int options) {
+  long ret;
+  asm volatile("li a7, %1\n\t"
+               "mv a0, %2\n\t"
+               "mv a1, %3\n\t"
+               "mv a2, %4\n\t"
+               "ecall\n\t"
+               "mv %0, a0\n\t"
+               : "=r"(ret)
+               : "i"(__NR_waitpid), "r"(pid), "r"(status), "r"(options)
+               : "a0", "a1", "a2", "a7", "memory");
   return ret;
 }
 

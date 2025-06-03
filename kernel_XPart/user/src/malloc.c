@@ -1,20 +1,20 @@
 #include <malloc.h>
 
 int is_free_block(struct malloc_blk *blk) {
-    printf("[U] is_free_block: checking block at %p\n", blk);
-    for (int i = 0; i < BLK_META_SIZE; i++) {
-        printf("%02x ", ((uint8_t *)&blk->meta)[i]);
-    }
-    printf("\n");
+    // printf("[U] is_free_block: checking block at %p\n", blk);
+    // for (int i = 0; i < BLK_META_SIZE; i++) {
+    //     printf("%02x ", ((uint8_t *)&blk->meta)[i]);
+    // }
+    // printf("\n");
     return blk->meta.magic == MALLOC_MAGIC && blk->meta.free;
 }
 
 void* malloc(size_t size) {
     struct malloc_blk *curr_blk = (struct malloc_blk *)USER_HEAP;
-    printf("%d\n", curr_blk->meta.magic);
+    // printf("%d\n", curr_blk->meta.magic);
 
     if(!(curr_blk->meta.magic == MALLOC_MAGIC)) {
-        printf("[U] malloc: initializing user heap\n");
+        // printf("[U] malloc: initializing user heap\n");
         for (int i = 0; i < USER_HEAP_SIZE / BLK_SIZE; i++) {
             curr_blk->meta.magic = MALLOC_MAGIC;
             curr_blk->meta.size = 0;
@@ -35,7 +35,7 @@ void* malloc(size_t size) {
                 curr_blk -= (free_needed - 1); // move back to the start of the free block 
                 curr_blk->meta.free = 0;
                 curr_blk->meta.size = size;
-                printf("[U] malloc: allocated %zu bytes at block %d\n", size, free_begin);
+                // printf("[U] malloc: allocated %zu bytes at block %d\n", size, free_begin);
                 return (void *)curr_blk->data;
             }
         } else {
@@ -43,7 +43,7 @@ void* malloc(size_t size) {
         }
         curr_blk++;
     }
-    printf("[U] malloc: out of memory\n");
+    // printf("[U] malloc: out of memory\n");
     return NULL; // out of memory
 }
 
@@ -51,9 +51,9 @@ void free(void* ptr) {
     if (ptr == NULL) return;
 
     struct malloc_blk *blk = (struct malloc_blk *)((uint64_t)ptr - BLK_META_SIZE);
-    printf("[U] free: freeing memory at %p\n", blk);
+    // printf("[U] free: freeing memory at %p\n", blk);
     if (blk->meta.magic != MALLOC_MAGIC) {
-        printf("[U] free: invalid pointer\n");
+        // printf("[U] free: invalid pointer\n");
         return;
     }
 
@@ -64,6 +64,6 @@ void free(void* ptr) {
         blk->meta.size = 0;
         blk++;
     }
-    printf("[U] free: memory freed successfully\n");
+    // printf("[U] free: memory freed successfully\n");
     return;
 }

@@ -6,8 +6,11 @@ long do_fork(struct pt_regs *regs){
   struct task_struct *child = (struct task_struct *)alloc_page();
 
   child->state = TASK_RUNNING;
-  extern uint64_t avail_pid;
-  child->pid = avail_pid++;
+  child->pid = get_next_avail_pid();
+  if (child->pid < 0) {
+    printk("[S] fork: no available pid\n");
+    return -1; // no available pid
+  }
 
   printk("[S] fork: %ld -> %ld\n", current->pid, child->pid);
 

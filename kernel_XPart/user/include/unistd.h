@@ -24,8 +24,15 @@ ssize_t lseek(int fd, off_t offset, int whence);
 
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
+
+int exit(int error_code);
+
 pid_t getpid(void);
+pid_t waitpid(pid_t pid, int *status, int options);
+
 pid_t fork(void);
 ssize_t execve(const char *filename, char *const argv[], char *const envp[]);
+
+int dup3(pid_t pid, int oldfd, int newfd);
 
 #endif

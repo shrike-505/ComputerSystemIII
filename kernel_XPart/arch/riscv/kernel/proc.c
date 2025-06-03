@@ -24,12 +24,45 @@ struct task_struct *task[NR_TASKS];        // 线程数组，所有的线程都�
 static struct task_struct *idle;           // idle 线程
 struct task_struct *current;               // 当前运行线程
 
+// struct wait_t wait_table[NR_TASKS]; 
+// int avail_wait = 0;
+
 void __dummy(void);
 void __switch_to(struct task_struct *prev, struct task_struct *next);
 
-uint64_t avail_pid = INIT_TASKS;
+uint64_t max_avail_pid = 0;
+uint64_t avail_pid[NR_TASKS];
 
 extern uint64_t virtio_base;
+
+uint64_t get_next_avail_pid(void)
+{
+    for (uint64_t i = 0; i < NR_TASKS; i++)
+    {
+        if (avail_pid[i] == 0)
+        {
+            printk("[S] get_next_avail_pid: found available pid = %ld\n", i);
+            avail_pid[i] = 1;
+            max_avail_pid = max_avail_pid < i ? i : max_avail_pid;
+            printk("[S] get_next_avail_pid: max_avail_pid = %ld\n", max_avail_pid);
+            return i;
+        }
+    }
+}
+
+void free_pid(uint64_t pid) {
+    if (pid < NR_TASKS && avail_pid[pid] == 1) {
+        avail_pid[pid] = 0;
+        if (pid == max_avail_pid) {
+            for (uint64_t i = max_avail_pid; i > 0; i--) {
+                if (avail_pid[i] == 1) {
+                    max_avail_pid = i;
+                    break;
+                }
+            }
+        }
+    }
+}
 
 struct vm_area_struct *find_vma(struct mm_struct *mm, void *va) {
     struct vm_area_struct *vma = mm->mmap;
@@ -141,17 +174,17 @@ void task_init(void) {
 
     idle = (struct task_struct *)alloc_page();
     idle->state = TASK_RUNNING;
-    idle->pid = 0;
+    idle->pid = get_next_avail_pid();
     idle->priority = 0;
     idle->counter = 0;
 
     current = idle;
     task[0] = idle;
 
-    for (int i = 1; i <= INIT_TASKS; i++){
+    for (int i = 1; i < INIT_TASKS; i++){
         task[i] = (struct task_struct *)alloc_page();
         task[i]->state = TASK_RUNNING;
-        task[i]->pid = i;
+        task[i]->pid = get_next_avail_pid();
         task[i]->priority = PRIORITY_MIN + rand() % (PRIORITY_MAX - PRIORITY_MIN + 1);
         task[i]->counter = 0;
 
@@ -240,20 +273,22 @@ void do_timer(void) {
 
 void schedule(void) {
     struct task_struct *next = idle;
-    for (uint64_t i = 1; i < avail_pid; i++){
-        if (task[i]->state == TASK_RUNNING && task[i]->counter > next->counter){
+    for (uint64_t i = 1; i <= max_avail_pid; i++){
+        printk("[PID = %ld, STATE = %ld, PRIORITY = %ld, COUNTER = %ld]\n", 
+               task[i]->pid, task[i]->state, task[i]->priority, task[i]->counter);
+        if (avail_pid[i] && (task[i]->state == TASK_RUNNING || task[i]->state == TASK_INTERRUPTIBLE) && task[i]->counter > next->counter){
             next = task[i];
         }
     }
     if (next == idle){
-        for (uint64_t i = 1; i < avail_pid; i++){
-            if (task[i]->state == TASK_RUNNING){
+        for (uint64_t i = 1; i <= max_avail_pid; i++){
+            if (avail_pid[i] && (task[i]->state == TASK_RUNNING || task[i]->state == TASK_INTERRUPTIBLE)){
                 task[i]->counter = task[i]->priority;
                 // #if USER_MAIN != SHELL
                 printk("SET [PID = %ld, PRIORITY = %ld, COUNTER = %ld]\n", task[i]->pid, task[i]->priority, task[i]->counter);
                 // #endif
             }
-            if (task[i]->state == TASK_RUNNING && task[i]->counter > next->counter){
+            if (avail_pid[i] && (task[i]->state == TASK_RUNNING || task[i]->state == TASK_INTERRUPTIBLE) && task[i]->counter > next->counter){
             next = task[i];
             }
         }
