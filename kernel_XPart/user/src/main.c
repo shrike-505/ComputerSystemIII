@@ -268,6 +268,7 @@ char *get_string(char *cmd) {
 }
 
 void parse_cmd(char *cmd, int len) {
+    // printf("\x1b[44m[U]\x1b[0m [PID = %d] cmd = '%s'\n", getpid(), cmd);
     if (cmd[0] == 'e' && cmd[1] == 'c' && cmd[2] == 'h' && cmd[3] == 'o') {
         cmd += 4;
         char *echo_content = get_string(cmd);
@@ -352,7 +353,8 @@ void parse_cmd(char *cmd, int len) {
     //     for (int i = 0; filenames[i] != NULL; i++) {
     //         printf("%s\n", filenames[i]);
     //     }    
-    } else if(cmd[0] == 'h' && cmd[1] == 'e' && cmd[2] == 'l' && cmd[3] == 'p') 
+    }
+    else if(cmd[0] == 'h' && cmd[1] == 'e' && cmd[2] == 'l' && cmd[3] == 'p') 
     {
         printf("RIKESHell commands:\n");
         printf("    echo <content> - Print content to stdout\n");
@@ -360,13 +362,33 @@ void parse_cmd(char *cmd, int len) {
         printf("    edit <filename> <offset> <content> - Edit file at offset with content\n");
         printf("    help - Show this help message\n");
         printf("    exit - Exit the shell\n");
-    } 
+    }
     else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't')
     {
         in_shell = 0;
         printf("Exiting RIKESHell...\n");
         return;
     } 
+    else if (cmd[0] == 'r' && cmd[1] == 'u' && cmd[2] == 'n') 
+    {   
+        cmd += 3;
+        while (*cmd == ' ') {
+            cmd++;
+        }
+        if (*cmd == '\0') {
+            printf("filename not provided\n");
+            return;
+        }
+        
+        char *filename = get_param(cmd);
+        pid_t pid = fork();
+        if(pid == 0){
+            execve(filename, NULL, NULL);
+            return;
+        }
+        // execve(filename, NULL, NULL);
+        return;
+    }
     else
     {
         printf("command not found: %s\n", cmd);
