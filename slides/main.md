@@ -36,8 +36,10 @@ revealOptions:
 - 软件：OS Kernel (Sys3 lab5)
     - PGF Handlers
     - ELF Loader
+    - execve, wait & exit syscall
     - Virtual File System & FAT32
     - RIKESHell
+    - C lib function: malloc/free, readline
 
 <!--v-->
 
@@ -82,23 +84,21 @@ revealOptions:
 
 <!--v-->
 
-## I/O
-
-- read syscall
-
-TBD
-
-<!--v-->
-
-## ELF Loader
-
-TBD
-
-<!--v-->
-
 ## File System
 
-TBD
+- 完整实现 QEMU VirtIO 到 FAT32 文件系统再到顶层文件系统抽象
+- 基于文件系统实现或完善 open，close，lseek，read，write 系统调用，支持用户读写文件与持久化存储
+
+<img src="./asset/fs.png">
+
+<!--v-->
+
+## Program Exectuion
+
+- 实现 ELF loading，能从文件系统中读入并加载新程序
+- 通过实现 fork，execve，waitpid，exit 系统调用，支持新程序从加载到结束和资源释放的完整流程
+
+<img src="./asset/exec.png">
 
 <!--v-->
 
